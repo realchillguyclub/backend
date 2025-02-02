@@ -3,7 +3,7 @@ package com.rcgc.illdan;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+@SpringBootTest(classes = IlldanApplicationTests.class)
 class IlldanApplicationTests {
 
     @Test
