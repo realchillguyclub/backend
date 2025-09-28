@@ -41,7 +41,7 @@ update_prometheus_target() {
   cat <<EOF > "$temp_target_file"
 [
   {
-    "targets": ["$PROMETHEUS_TARGET_SERVER:$port"],
+    "targets": ["${PROMETHEUS_TARGET_SERVER}:$port"],
     "labels": { "color": "$color" }
   }
 ]
