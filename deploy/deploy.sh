@@ -86,7 +86,7 @@ if [ -z "$IS_GREEN" ]; then
   done
 
   # Prometheus 타겟 업데이트 (green, 9002 포트)
-    update_prometheus_target "green" "9002"
+  update_prometheus_target "green" "9002"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$GREEN_NGINX_CONF" "$NGINX_CONF"
@@ -127,7 +127,7 @@ else
   done
 
   # Prometheus 타겟 업데이트 (blue, 9001 포트)
-    update_prometheus_target "blue" "9001"
+  update_prometheus_target "blue" "9001"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$BLUE_NGINX_CONF" "$NGINX_CONF"
