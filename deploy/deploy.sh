@@ -29,6 +29,36 @@ send_discord_message() {
   curl -H "Content-Type: application/json" -d "{\"content\": \"$message\"}" $DISCORD_DEPLOY_RESULT_WEBHOOK_URL
 }
 
+#  Prometheus 타겟 업데이트 함수
+update_prometheus_target() {
+  local color=$1
+  local port=$2
+  local temp_target_file="/tmp/targets.json"
+
+  echo ">>> Prometheus 모니터링 타겟을 $color (포트: $port)로 변경합니다."
+
+  # 1. 로컬에 임시 타겟 파일 생성
+  cat <<EOF > "$temp_target_file"
+[
+  {
+    "targets": ["$PROMETHEUS_TARGET_SERVER:$port"],
+    "labels": { "color": "$color" }
+  }
+]
+EOF
+
+  # 2. scp를 사용해 원격 모니터링 서버로 파일 전송 (-i 옵션으로 키 지정)
+  scp -i "$SSH_KEY_PATH" "$temp_target_file" ${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${REMOTE_TARGETS_FILE_PATH} || {
+    echo "💥 원격 모니터링 서버로 타겟 파일 전송에 실패했습니다."
+    send_discord_message "$MESSAGE_FAILURE"
+    exit 1
+  }
+  echo "✅ Prometheus 타겟 파일 원격 업데이트 완료."
+
+  # 3. 로컬 임시 파일 삭제
+  rm "$temp_target_file"
+}
+
 # 💚 blue가 실행중이라면 green을 up합니다.
 if [ -z "$IS_GREEN" ]; then
   echo "### BLUE => GREEN ###"
@@ -54,6 +84,9 @@ if [ -z "$IS_GREEN" ]; then
       exit 1
     fi
   done
+
+  # Prometheus 타겟 업데이트 (green, 9002 포트)
+    update_prometheus_target "green" "9002"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$GREEN_NGINX_CONF" "$NGINX_CONF"
@@ -92,6 +125,9 @@ else
       exit 1
     fi
   done
+
+  # Prometheus 타겟 업데이트 (blue, 9001 포트)
+    update_prometheus_target "blue" "9001"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$BLUE_NGINX_CONF" "$NGINX_CONF"
