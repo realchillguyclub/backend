@@ -73,6 +73,8 @@ management:
     web:
       exposure:
         include: health
+  server:
+    port: 9001
 
 springdoc:
   swagger-ui:
