@@ -21,6 +21,10 @@ NGINX_CONF="/home/ubuntu/nginx/nginx.conf"
 
 DOCKER_COMPOSE_FILE="/home/ubuntu/docker-compose.yaml"
 
+# 포트(관리/Actuator)
+BLUE_ACT_PORT=9001
+GREEN_ACT_PORT=9002
+
 MESSAGE_SUCCESS="✅ '일단!' 배포가 성공적으로 수행되었습니다!"
 MESSAGE_FAILURE="🚨 '일단!' 배포 과정에서 오류가 발생했습니다. 빠른 확인바랍니다."
 
@@ -31,32 +35,56 @@ send_discord_message() {
 
 #  Prometheus 타겟 업데이트 함수
 update_prometheus_target() {
-  local color=$1
-  local port=$2
-  local temp_target_file="/tmp/targets.json"
+  local color="$1"
+  local port="$2"
 
-  echo ">>> Prometheus 모니터링 타겟을 $color (포트: $port)로 변경합니다."
+  # .env에서 제공되는 공통 변수 사용:
+  # MONITORING_SERVER_USER, MONITORING_SERVER_IP, REMOTE_TARGETS_FILE_PATH
+  # PROMETHEUS_TARGET_SERVER, SSH_KEY_PATH
+  local temp_local="/tmp/targets.json"
+  local remote_file="${REMOTE_TARGETS_FILE_PATH}"
+  local remote_tmp="${remote_file}.tmp"
+  local remote_bak="${remote_file}.bak"
 
-  # 1. 로컬에 임시 타겟 파일 생성
-  cat <<EOF > "$temp_target_file"
+  echo ">>> Prometheus 타겟을 ${color} (${PROMETHEUS_TARGET_SERVER}:${port}) 로 변경합니다."
+  echo ">>> 대상 파일: ${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${remote_file}"
+
+  # 1) 로컬 임시 JSON 작성
+  cat > "$temp_local" <<EOF
 [
   {
-    "targets": ["${PROMETHEUS_TARGET_SERVER}:$port"],
-    "labels": { "color": "$color" }
+    "targets": ["${PROMETHEUS_TARGET_SERVER}:${port}"],
+    "labels": { "app": "illdan", "color": "${color}" }
   }
 ]
 EOF
 
-  # 2. scp를 사용해 원격 모니터링 서버로 파일 전송 (-i 옵션으로 키 지정)
-  scp -i "$SSH_KEY_PATH" "$temp_target_file" ${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${REMOTE_TARGETS_FILE_PATH} || {
-    echo "💥 원격 모니터링 서버로 타겟 파일 전송에 실패했습니다."
-    send_discord_message "$MESSAGE_FAILURE"
-    exit 1
-  }
-  echo "✅ Prometheus 타겟 파일 원격 업데이트 완료."
+  # 2) 임시 파일 업로드 (known_hosts 사전 등록)
+  scp -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
+    "$temp_local" \
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${remote_tmp}" || {
+      echo "💥 타겟 임시 업로드 실패"
+      rm -f "$temp_local"
+      exit 1
+    }
 
-  # 3. 로컬 임시 파일 삭제
-  rm "$temp_target_file"
+  # 3) 원격에서 검증 → 백업 → 원자 교체 → 권한 정리
+  ssh -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}" \
+    "jq . ${remote_tmp} >/dev/null 2>&1 \
+      && sudo cp -f ${remote_file} ${remote_bak} 2>/dev/null || true \
+      && sudo mv -f ${remote_tmp} ${remote_file} \
+      && sudo chown prometheus:prometheus ${remote_file} \
+      && sudo chmod 644 ${remote_file}" || {
+        echo "💥 원격 JSON 검증/교체 실패"
+        rm -f "$temp_local"
+        exit 1
+      }
+
+  # 4) 로컬 임시 파일 정리
+  rm -f "$temp_local"
+  echo "✅ Prometheus 타겟 업데이트 완료"
+
 }
 
 # 💚 blue가 실행중이라면 green을 up합니다.
