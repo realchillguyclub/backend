@@ -59,7 +59,7 @@ EOF
     }
 
   ssh -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
-    "${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}" \
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER}" \
     "jq . ${remote_home_tmp} >/dev/null 2>&1 \
       && mkdir -p \"\$(dirname \"${remote_file}\")\" \
       && install -m 644 -T ${remote_home_tmp} ${remote_file} \
