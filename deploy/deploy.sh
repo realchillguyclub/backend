@@ -35,56 +35,46 @@ send_discord_message() {
 
 #  Prometheus 타겟 업데이트 함수
 update_prometheus_target() {
-  local color="$1"
-  local port="$2"
-
-  # .env에서 제공되는 공통 변수 사용:
-  # MONITORING_SERVER_USER, MONITORING_SERVER_IP, REMOTE_TARGETS_FILE_PATH
-  # PROMETHEUS_TARGET_SERVER, SSH_KEY_PATH
+  local color="$1"      # blue | green
+  local port="$2"       # 9001 | 9002
   local temp_local="/tmp/targets.json"
+
   local remote_file="${REMOTE_TARGETS_FILE_PATH}"
-  local remote_tmp="${remote_file}.tmp"
-  local remote_bak="${remote_file}.bak"
+  local remote_home_tmp="~/targets.tmp.json"
 
   echo ">>> Prometheus 타겟을 ${color} (${PROMETHEUS_TARGET_SERVER}:${port}) 로 변경합니다."
-  echo ">>> 대상 파일: ${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${remote_file}"
+  echo ">>> 대상 파일: ${MONITORING_SERVER_USER}@${MONITORING_SERVER}:${remote_file}"
 
-  # 1) 로컬 임시 JSON 작성
   cat > "$temp_local" <<EOF
 [
   {
     "targets": ["${PROMETHEUS_TARGET_SERVER}:${port}"],
-    "labels": { "app": "illdan", "color": "${color}" }
+    "labels": { "color": "${color}" }
   }
 ]
 EOF
 
-  # 2) 임시 파일 업로드 (known_hosts 사전 등록)
   scp -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
     "$temp_local" \
-    "${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}:${remote_tmp}" || {
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER}:${remote_home_tmp}" || {
       echo "💥 타겟 임시 업로드 실패"
       rm -f "$temp_local"
       exit 1
     }
 
-  # 3) 원격에서 검증 → 백업 → 원자 교체 → 권한 정리
   ssh -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
     "${MONITORING_SERVER_USER}@${MONITORING_SERVER_IP}" \
-    "jq . ${remote_tmp} >/dev/null 2>&1 \
-      && sudo cp -f ${remote_file} ${remote_bak} 2>/dev/null || true \
-      && sudo mv -f ${remote_tmp} ${remote_file} \
-      && sudo chown prometheus:prometheus ${remote_file} \
-      && sudo chmod 644 ${remote_file}" || {
-        echo "💥 원격 JSON 검증/교체 실패"
+    "jq . ${remote_home_tmp} >/dev/null 2>&1 \
+      && mkdir -p \"\$(dirname \"${remote_file}\")\" \
+      && install -m 644 -T ${remote_home_tmp} ${remote_file} \
+      && rm -f ${remote_home_tmp}" || {
+        echo "💥 원격 JSON 검증/교체 실패(jq/권한/경로)"
         rm -f "$temp_local"
         exit 1
       }
 
-  # 4) 로컬 임시 파일 정리
   rm -f "$temp_local"
   echo "✅ Prometheus 타겟 업데이트 완료"
-
 }
 
 # 💚 blue가 실행중이라면 green을 up합니다.
