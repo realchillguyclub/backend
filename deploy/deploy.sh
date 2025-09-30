@@ -21,10 +21,6 @@ NGINX_CONF="/home/ubuntu/nginx/nginx.conf"
 
 DOCKER_COMPOSE_FILE="/home/ubuntu/docker-compose.yaml"
 
-# 포트(관리/Actuator)
-BLUE_ACT_PORT=9001
-GREEN_ACT_PORT=9002
-
 MESSAGE_SUCCESS="✅ '일단!' 배포가 성공적으로 수행되었습니다!"
 MESSAGE_FAILURE="🚨 '일단!' 배포 과정에서 오류가 발생했습니다. 빠른 확인바랍니다."
 
