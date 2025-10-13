@@ -408,4 +408,64 @@ public class CategoryServiceTest extends ServiceTestConfig {
         }
     }
 
+    @Nested
+    @DisplayName("[SCN-SVC-CATEGORY-004] 카테고리를 삭제한다.")
+    class DeleteCategory {
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-004][TC-DELETE-001] 정상 삭제 시 카테고리 삭제와 연관 Todo 삭제를 각각 한 번 수행한다.")
+        void delete_success_deletesCategoryAndTodosOnce() {
+            // given
+            Long userId = 10L;
+            Long categoryId = 100L;
+
+            Category category = mock(Category.class);
+            when(categoryValidator.validateAndReturnCategory(userId, categoryId)).thenReturn(category);
+
+            // when
+            categoryService.deleteCategory(userId, categoryId);
+
+            // then
+            verify(categoryRepository, times(1)).delete(same(category));
+            verify(todoRepository, times(1)).deleteAllByCategoryId(categoryId);
+            verifyNoMoreInteractions(categoryRepository, todoRepository);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-004][TC-DELETE-002] 사용자가 존재하지 않으면 예외를 던지고 카테고리 검증과 삭제를 수행하지 않는다")
+        void delete_userNotFound_throwsAndDoesNotProceed() {
+            // given
+            Long userId = 404L;
+            Long categoryId = 1L;
+
+            doThrow(new CustomException(UserErrorStatus._USER_NOT_EXIST))
+                    .when(userValidator).checkIsExistUser(userId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.deleteCategory(userId, categoryId))
+                    .isInstanceOf(CustomException.class);
+
+            verifyNoInteractions(categoryValidator);
+            verifyNoInteractions(categoryRepository, todoRepository);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-004][TC-DELETE-003] 대상 카테고리가 유효하지 않으면 예외를 던지고 카테고리 삭제와 연관 Todo 삭제를 수행하지 않는다")
+        void delete_invalidCategory_throwsAndDoesNotDelete() {
+            // given
+            Long userId = 10L;
+            Long categoryId = 999L;
+
+            doThrow(new CustomException(CategoryErrorStatus._CATEGORY_NOT_EXIST))
+                    .when(categoryValidator).validateAndReturnCategory(userId, categoryId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.deleteCategory(userId, categoryId))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining(CategoryErrorStatus._CATEGORY_NOT_EXIST.getMessage());
+
+            verify(categoryRepository, never()).delete(any());
+            verify(todoRepository, never()).deleteAllByCategoryId(anyLong());
+        }
+    }
 }
