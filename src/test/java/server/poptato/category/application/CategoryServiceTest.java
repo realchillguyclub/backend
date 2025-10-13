@@ -1,6 +1,8 @@
 package server.poptato.category.application;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -292,4 +294,118 @@ public class CategoryServiceTest extends ServiceTestConfig {
             }
         }
     }
+
+    @Nested
+    @DisplayName("[SCN-SVC-CATEGORY-003] 카테고리를 수정한다.")
+    class UpdateCategory {
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-003][TC-UPDATE-001] 정상 수정 시 카테고리 엔티티에 요청 값이 반영되고 저장을 한 번 수행한다")
+        void update_success_updatesEntityAndSavesOnce() {
+            // given
+            Long userId = 10L;
+            Long categoryId = 100L;
+            Long emojiId = 77L;
+            CategoryCreateUpdateRequestDto requestDto = new CategoryCreateUpdateRequestDto("NewName", emojiId);
+
+            Category category = mock(Category.class);
+            when(categoryValidator.validateAndReturnCategory(userId, categoryId)).thenReturn(category);
+
+            // when
+            categoryService.updateCategory(userId, categoryId, requestDto);
+
+            // then
+            verify(category).update(requestDto);
+            verify(categoryRepository, times(1)).save(category);
+            verifyNoMoreInteractions(categoryRepository);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-003][TC-UPDATE-002] 사용자가 존재하지 않으면 예외를 던지고 카테고리 조회와 저장을 수행하지 않는다")
+        void update_userNotFound_throwsAndDoesNotQueryOrSave() {
+            // given
+            Long userId = 404L;
+            Long categoryId = 1L;
+            Long emojiId = 10L;
+            CategoryCreateUpdateRequestDto requestDto = new CategoryCreateUpdateRequestDto("Name", emojiId);
+
+            doThrow(new CustomException(UserErrorStatus._USER_NOT_EXIST))
+                    .when(userValidator).checkIsExistUser(userId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.updateCategory(userId, categoryId, requestDto))
+                    .isInstanceOf(CustomException.class);
+
+            verifyNoInteractions(categoryValidator);
+            verify(categoryRepository, never()).save(any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"_CATEGORY_NOT_EXIST", "_CATEGORY_USER_NOT_MATCH"})
+        @DisplayName("[SCN-SVC-CATEGORY-003][TC-UPDATE-003] 요청한 이모지가 존재하지 않으면 예외를 던지고 카테고리 조회와 저장을 수행하지 않는다")
+        void update_emojiNotFound_throwsAndDoesNotQueryOrSave(String statusName) {
+            // given
+            Long userId = 10L;
+            Long categoryId = 1L;
+            Long emojiId = 999L;
+            CategoryCreateUpdateRequestDto requestDto = new CategoryCreateUpdateRequestDto("Name", emojiId);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doThrow(new CustomException(CategoryErrorStatus.valueOf(statusName)))
+                    .when(categoryValidator).validateAndReturnCategory(userId, categoryId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.updateCategory(userId, categoryId, requestDto))
+                    .isInstanceOf(CustomException.class);
+
+            verify(categoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-003][TC-UPDATE-004] 대상 카테고리가 유효하지 않으면 예외를 던지고 저장을 수행하지 않는다")
+        void update_invalidCategory_throwsAndDoesNotSave() {
+            // given
+            Long userId = 10L;
+            Long categoryId = 123L;
+            Long emojiId = 7L;
+            CategoryCreateUpdateRequestDto requestDto = new CategoryCreateUpdateRequestDto("Name", emojiId);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doNothing().when(emojiValidator).checkIsExistEmoji(emojiId);
+            doThrow(new CustomException(CategoryErrorStatus._CATEGORY_NOT_EXIST))
+                    .when(categoryValidator).validateAndReturnCategory(userId, categoryId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.updateCategory(userId, categoryId, requestDto))
+                    .isInstanceOf(CustomException.class);
+
+            verify(categoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-003][TC-UPDATE-005] 검증과 저장 호출 순서를 사용자 검증 다음에 이모지 검증 그 다음에 카테고리 검증 마지막에 저장으로 보장한다")
+        void update_callsInStrictOrder_user_then_emoji_then_category_then_save() {
+            // given
+            Long userId = 20L;
+            Long categoryId = 200L;
+            Long emojiId = 70L;
+            CategoryCreateUpdateRequestDto requestDto = new CategoryCreateUpdateRequestDto("Ordered", emojiId);
+
+            Category category = mock(Category.class);
+            when(categoryValidator.validateAndReturnCategory(userId, categoryId)).thenReturn(category);
+
+            // when
+            categoryService.updateCategory(userId, categoryId, requestDto);
+
+            // then
+            InOrder inOrder = inOrder(userValidator, emojiValidator, categoryValidator, category, categoryRepository);
+            inOrder.verify(userValidator).checkIsExistUser(userId);
+            inOrder.verify(emojiValidator).checkIsExistEmoji(emojiId);
+            inOrder.verify(categoryValidator).validateAndReturnCategory(userId, categoryId);
+            inOrder.verify(category).update(requestDto);
+            inOrder.verify(categoryRepository).save(category);
+            verifyNoMoreInteractions(categoryRepository);
+        }
+    }
+
 }
