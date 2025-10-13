@@ -17,7 +17,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public abstract class RedisTestConfig {
 
     private static final Logger log = LoggerFactory.getLogger(RedisTestConfig.class);
-    private static final String REDIS_IMAGE = "redis:7.0";
+    private static final String REDIS_IMAGE = "redis:alpine";
 
     @Container
     @ServiceConnection
