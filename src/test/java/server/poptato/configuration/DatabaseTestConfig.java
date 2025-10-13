@@ -20,7 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public abstract class DatabaseTestConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseTestConfig.class);
-    private static final String MYSQL_IMAGE = "mysql:8.0.36";
+    private static final String MYSQL_IMAGE = "mysql:8.0.42";
 
     @Autowired
     protected TestEntityManager tem;
