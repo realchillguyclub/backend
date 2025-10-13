@@ -2,8 +2,12 @@ package server.poptato.category.application;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import server.poptato.category.api.request.CategoryCreateUpdateRequestDto;
 import server.poptato.category.application.response.CategoryCreateResponseDto;
+import server.poptato.category.application.response.CategoryListResponseDto;
 import server.poptato.category.domain.entity.Category;
 import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.category.status.CategoryErrorStatus;
@@ -12,9 +16,13 @@ import server.poptato.configuration.ServiceTestConfig;
 import server.poptato.emoji.domain.repository.EmojiRepository;
 import server.poptato.emoji.validator.EmojiValidator;
 import server.poptato.global.exception.CustomException;
+import server.poptato.global.util.FileUtil;
 import server.poptato.todo.domain.repository.TodoRepository;
+import server.poptato.user.domain.value.MobileType;
+import server.poptato.user.status.UserErrorStatus;
 import server.poptato.user.validator.UserValidator;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,7 +58,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
     CategoryService categoryService;
 
     @Nested
-    @DisplayName("[SCN-SVC-CATEGORY-001] 카테고리 생성(Create)")
+    @DisplayName("[SCN-SVC-CATEGORY-001] 카테고리를 생성한다.")
     class CreateCategory {
 
         @Test
@@ -135,4 +143,153 @@ public class CategoryServiceTest extends ServiceTestConfig {
         }
     }
 
+    @Nested
+    @DisplayName("[SCN-SVC-CATEGORY-002] 카테고리 목록을 조회한다.")
+    class ListCategories {
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-002][TC-LIST-001] 정상 조회 시 이모지 URL을 확장자로 변환하여 DTO 목록과 totalPages를 반환한다.")
+        void list_success_returnsMappedDtosWithTotalPages() {
+            // given
+            Long userId = 10L;
+            int page = 0;
+            int size = 2;
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            Category c1 = mock(Category.class);
+            when(c1.getId()).thenReturn(1L);
+            when(c1.getEmojiId()).thenReturn(101L);
+            when(c1.getName()).thenReturn("Work");
+
+            Category c2 = mock(Category.class);
+            when(c2.getId()).thenReturn(2L);
+            when(c2.getEmojiId()).thenReturn(102L);
+            when(c2.getName()).thenReturn("Home");
+
+            Page<Category> pageData =
+                    new PageImpl<>(List.of(c1, c2), PageRequest.of(page, size), 5);
+            when(categoryRepository.findCategories(eq(userId), any(PageRequest.class))).thenReturn(pageData);
+
+            when(emojiRepository.findImageUrlById(101L)).thenReturn("emoji/e1.svg");
+            when(emojiRepository.findImageUrlById(102L)).thenReturn("emoji/e2.svg");
+
+            try (MockedStatic<FileUtil> mocked = mockStatic(FileUtil.class)) {
+                mocked.when(() -> FileUtil.changeFileExtension("emoji/e1.svg", MobileType.ANDROID.getImageUrlExtension()))
+                        .thenReturn("emoji/e1.pdf");
+                mocked.when(() -> FileUtil.changeFileExtension("emoji/e2.svg", MobileType.ANDROID.getImageUrlExtension()))
+                        .thenReturn("emoji/e2.pdf");
+
+                // when
+                CategoryListResponseDto responseDto = categoryService.getCategories(userId, MobileType.ANDROID, page, size);
+
+                // then
+                assertThat(responseDto.categories()).hasSize(2);
+                assertThat(responseDto.totalPageCount()).isEqualTo(pageData.getTotalPages());
+                verify(emojiRepository).findImageUrlById(101L);
+                verify(emojiRepository).findImageUrlById(102L);
+                mocked.verify(() -> FileUtil.changeFileExtension("emoji/e1.svg", MobileType.ANDROID.getImageUrlExtension()), times(1));
+                mocked.verify(() -> FileUtil.changeFileExtension("emoji/e2.svg", MobileType.ANDROID.getImageUrlExtension()), times(1));
+            }
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-002][TC-LIST-002] 조회 결과가 비어 있으면 빈 목록과 totalPages 0을 반환하며 이모지 조회와 파일 확장자 변환을 호출하지 않는다.")
+        void list_empty_returnsEmptyAndDoesNotCallEmojiOrFileUtil() {
+            // given
+            Long userId = 11L;
+            int page = 0;
+            int size = 10;
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            Page<Category> emptyPage = new PageImpl<>(List.of(), PageRequest.of(page, size), 0);
+            when(categoryRepository.findCategories(eq(userId), any(PageRequest.class))).thenReturn(emptyPage);
+
+            try (MockedStatic<FileUtil> mocked = mockStatic(FileUtil.class)) {
+                // when
+                CategoryListResponseDto responseDto = categoryService.getCategories(userId, MobileType.IOS, page, size);
+
+                // then
+                assertThat(responseDto.categories()).isEmpty();
+                assertThat(responseDto.totalPageCount()).isEqualTo(0);
+                verifyNoInteractions(emojiRepository);
+                mocked.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-002][TC-LIST-003] 사용자가 존재하지 않으면 예외를 던지고 카테고리 조회와 이모지 조회 그리고 파일 확장자 변환을 수행하지 않는다.")
+        void list_userNotFound_throwsAndNoFurtherCalls() {
+            // given
+            Long userId = 404L;
+            int page = 0;
+            int size = 5;
+
+            doThrow(new CustomException(UserErrorStatus._USER_NOT_EXIST))
+                    .when(userValidator).checkIsExistUser(userId);
+
+            try (MockedStatic<FileUtil> mocked = mockStatic(FileUtil.class)) {
+                // when & then
+                assertThatThrownBy(() -> categoryService.getCategories(userId, MobileType.ANDROID, page, size))
+                        .isInstanceOf(CustomException.class);
+
+                verifyNoInteractions(categoryRepository, emojiRepository);
+                mocked.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-002][TC-LIST-004] N개 항목이 조회되면 파일 확장자 변환 함수가 각 항목마다 정확히 한 번씩 호출된다.")
+        void list_callsFileUtilExactlyOncePerItem() {
+            // given
+            Long userId = 20L;
+            int page = 0;
+            int size = 3;
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            Category c1 = mock(Category.class);
+            when(c1.getId()).thenReturn(10L);
+            when(c1.getEmojiId()).thenReturn(501L);
+            when(c1.getName()).thenReturn("A");
+
+            Category c2 = mock(Category.class);
+            when(c2.getId()).thenReturn(11L);
+            when(c2.getEmojiId()).thenReturn(502L);
+            when(c2.getName()).thenReturn("B");
+
+            Category c3 = mock(Category.class);
+            when(c3.getId()).thenReturn(12L);
+            when(c3.getEmojiId()).thenReturn(503L);
+            when(c3.getName()).thenReturn("C");
+
+            Page<Category> pageData =
+                    new PageImpl<>(List.of(c1, c2, c3), PageRequest.of(page, size), 3);
+            when(categoryRepository.findCategories(eq(userId), any(PageRequest.class))).thenReturn(pageData);
+
+            when(emojiRepository.findImageUrlById(501L)).thenReturn("e1.svg");
+            when(emojiRepository.findImageUrlById(502L)).thenReturn("e2.svg");
+            when(emojiRepository.findImageUrlById(503L)).thenReturn("e3.svg");
+
+            try (MockedStatic<FileUtil> mocked = mockStatic(FileUtil.class)) {
+                mocked.when(() -> FileUtil.changeFileExtension(anyString(), anyString()))
+                        .thenAnswer(inv -> inv.getArgument(0));
+
+                // when
+                CategoryListResponseDto responseDto = categoryService.getCategories(userId, MobileType.ANDROID, page, size);
+
+                // then
+                assertThat(responseDto.categories()).hasSize(3);
+
+                mocked.verify(() -> FileUtil.changeFileExtension("e1.svg", MobileType.ANDROID.getImageUrlExtension()), times(1));
+                mocked.verify(() -> FileUtil.changeFileExtension("e2.svg", MobileType.ANDROID.getImageUrlExtension()), times(1));
+                mocked.verify(() -> FileUtil.changeFileExtension("e3.svg", MobileType.ANDROID.getImageUrlExtension()), times(1));
+
+                verify(emojiRepository, times(1)).findImageUrlById(501L);
+                verify(emojiRepository, times(1)).findImageUrlById(502L);
+                verify(emojiRepository, times(1)).findImageUrlById(503L);
+            }
+        }
+    }
 }
