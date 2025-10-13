@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import server.poptato.category.api.request.CategoryCreateUpdateRequestDto;
+import server.poptato.category.api.request.CategoryDragAndDropRequestDto;
 import server.poptato.category.application.response.CategoryCreateResponseDto;
 import server.poptato.category.application.response.CategoryListResponseDto;
 import server.poptato.category.domain.entity.Category;
@@ -32,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@TestMethodOrder(MethodOrderer.DisplayName.class)
 public class CategoryServiceTest extends ServiceTestConfig {
 
     @Mock
@@ -60,6 +60,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
     CategoryService categoryService;
 
     @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
     @DisplayName("[SCN-SVC-CATEGORY-001] 카테고리를 생성한다.")
     class CreateCategory {
 
@@ -146,6 +147,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
     }
 
     @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
     @DisplayName("[SCN-SVC-CATEGORY-002] 카테고리 목록을 조회한다.")
     class ListCategories {
 
@@ -296,6 +298,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
     }
 
     @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
     @DisplayName("[SCN-SVC-CATEGORY-003] 카테고리를 수정한다.")
     class UpdateCategory {
 
@@ -409,6 +412,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
     }
 
     @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
     @DisplayName("[SCN-SVC-CATEGORY-004] 카테고리를 삭제한다.")
     class DeleteCategory {
 
@@ -466,6 +470,140 @@ public class CategoryServiceTest extends ServiceTestConfig {
 
             verify(categoryRepository, never()).delete(any());
             verify(todoRepository, never()).deleteAllByCategoryId(anyLong());
+        }
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-CATEGORY-005] 카테고리 순서를 재배치한다.")
+    class ReorderCategories {
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-005][TC-REORDER-001] 정상적으로 순서를 변경하면 기존 categoryOrder의 오름차순 값을 요청 ID 순서대로 재할당하고 각 카테고리를 한 번씩 저장한다.")
+        void reorder_success_assignsSortedOrdersAndSavesOncePerCategory() {
+            // given
+            Long userId = 10L;
+            Long idA = 10L;
+            Long idB = 20L;
+            Long idC = 30L;
+            CategoryDragAndDropRequestDto requestDto = new CategoryDragAndDropRequestDto(List.of(idA, idB, idC));
+
+            Category catA = mock(Category.class);
+            when(catA.getId()).thenReturn(idA);
+            when(catA.getCategoryOrder()).thenReturn(9);
+            Category catB = mock(Category.class);
+            when(catB.getId()).thenReturn(idB);
+            when(catB.getCategoryOrder()).thenReturn(2);
+            Category catC = mock(Category.class);
+            when(catC.getId()).thenReturn(idC);
+            when(catC.getCategoryOrder()).thenReturn(5);
+
+            when(categoryRepository.findById(idA)).thenReturn(Optional.of(catA));
+            when(categoryRepository.findById(idB)).thenReturn(Optional.of(catB));
+            when(categoryRepository.findById(idC)).thenReturn(Optional.of(catC));
+
+            // when
+            categoryService.dragAndDrop(userId, requestDto);
+
+            // then
+            verify(catA).updateCategoryOrder(2);
+            verify(catB).updateCategoryOrder(5);
+            verify(catC).updateCategoryOrder(9);
+
+            verify(categoryRepository, times(1)).save(catA);
+            verify(categoryRepository, times(1)).save(catB);
+            verify(categoryRepository, times(1)).save(catC);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-005][TC-REORDER-002] 사용자가 존재하지 않으면 예외를 던지고 카테고리 조회와 검증 그리고 저장을 수행하지 않는다.")
+        void reorder_userNotFound_throwsAndNoRepositoryCalls() {
+            // given
+            Long userId = 404L;
+            CategoryDragAndDropRequestDto requestDto = new CategoryDragAndDropRequestDto(List.of(1L, 2L));
+
+            doThrow(new CustomException(UserErrorStatus._USER_NOT_EXIST))
+                    .when(userValidator).checkIsExistUser(userId);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.dragAndDrop(userId, requestDto))
+                    .isInstanceOf(CustomException.class);
+
+            verifyNoInteractions(categoryRepository, categoryValidator);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-005][TC-REORDER-003] 요청 목록에 시스템 카테고리(−1 또는 0)가 포함되어 있으면 예외를 던지고 저장을 수행하지 않는다.")
+        void reorder_containsSystemCategory_throwsAndDoesNotSave() {
+            // given
+            Long userId = 10L;
+            Long defaultAll = -1L;
+            Long normal = 2L;
+            CategoryDragAndDropRequestDto requestDto = new CategoryDragAndDropRequestDto(List.of(defaultAll, normal));
+
+            Category defaultCat = mock(Category.class);
+            when(defaultCat.getId()).thenReturn(defaultAll);
+            Category normalCat = mock(Category.class);
+
+            when(categoryRepository.findById(defaultAll)).thenReturn(Optional.of(defaultCat));
+            when(categoryRepository.findById(normal)).thenReturn(Optional.of(normalCat));
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.dragAndDrop(userId, requestDto))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining(CategoryErrorStatus._INVALID_DRAG_AND_DROP_CATEGORY.getMessage());
+
+            verify(categoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-005][TC-REORDER-004] 요청 목록에 존재하지 않는 카테고리 ID가 포함되어 있으면 예외를 던지고 저장을 수행하지 않는다.")
+        void reorder_containsNonExistingCategory_throwsAndDoesNotSave() {
+            // given
+            Long userId = 10L;
+            Long exists = 1L;
+            Long notExists = 999L;
+            CategoryDragAndDropRequestDto requestDto = new CategoryDragAndDropRequestDto(List.of(exists, notExists));
+
+            Category existing = mock(Category.class);
+
+            when(categoryRepository.findById(exists)).thenReturn(Optional.of(existing));
+            when(categoryRepository.findById(notExists)).thenReturn(Optional.empty()); // getCategoriesByIds에서 예외
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.dragAndDrop(userId, requestDto))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining(CategoryErrorStatus._CATEGORY_NOT_EXIST.getMessage());
+
+            verify(categoryRepository, never()).save(any());
+            verifyNoInteractions(categoryValidator);
+        }
+
+        @Test
+        @DisplayName("[SCN-SVC-CATEGORY-005][TC-REORDER-005] 카테고리 검증에서 실패하면 예외를 던지고 저장을 수행하지 않는다.")
+        void reorder_validatorFails_throwsAndDoesNotSave() {
+            // given
+            Long userId = 10L;
+            Long idA = 10L;
+            Long idB = 20L;
+            CategoryDragAndDropRequestDto requestDto = new CategoryDragAndDropRequestDto(List.of(idA, idB));
+
+            Category catA = mock(Category.class);
+            when(catA.getId()).thenReturn(idA);
+            Category catB = mock(Category.class);
+
+            when(categoryRepository.findById(idA)).thenReturn(Optional.of(catA));
+            when(categoryRepository.findById(idB)).thenReturn(Optional.of(catB));
+
+            doThrow(new CustomException(CategoryErrorStatus._CATEGORY_USER_NOT_MATCH))
+                    .when(categoryValidator).validateCategory(userId, idA);
+
+            // when & then
+            assertThatThrownBy(() -> categoryService.dragAndDrop(userId, requestDto))
+                    .isInstanceOf(CustomException.class)
+                    .hasMessageContaining(CategoryErrorStatus._CATEGORY_USER_NOT_MATCH.getMessage());
+
+            verify(categoryRepository, never()).save(any());
         }
     }
 }
