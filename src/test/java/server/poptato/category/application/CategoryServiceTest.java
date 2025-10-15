@@ -216,7 +216,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
 
                 // then
                 assertThat(responseDto.categories()).isEmpty();
-                assertThat(responseDto.totalPageCount()).isEqualTo(0);
+                assertThat(responseDto.totalPageCount()).isZero();
                 verifyNoInteractions(emojiRepository);
                 mocked.verifyNoInteractions();
             }

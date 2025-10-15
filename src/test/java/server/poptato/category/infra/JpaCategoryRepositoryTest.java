@@ -52,7 +52,7 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
 
             // then
             assertThat(maxOrder).isPresent();
-            assertThat(maxOrder.get()).isEqualTo(9);
+            assertThat(maxOrder).contains(9);
         }
 
         @Test
@@ -68,7 +68,7 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
 
             // then
             assertThat(maxOrder).isPresent();
-            assertThat(maxOrder.get()).isEqualTo(0);
+            assertThat(maxOrder.get()).isZero();
         }
     }
 
