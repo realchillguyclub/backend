@@ -51,8 +51,7 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
             Optional<Integer> maxOrder = jpaCategoryRepository.findMaxCategoryOrderByUserId(userId);
 
             // then
-            assertThat(maxOrder).isPresent();
-            assertThat(maxOrder).contains(9);
+            assertThat(maxOrder).isPresent().contains(9);
         }
 
         @Test
