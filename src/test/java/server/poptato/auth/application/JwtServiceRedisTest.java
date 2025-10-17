@@ -77,7 +77,7 @@ class JwtServiceRedisTest extends ServiceTestConfig {
             when(valueOps.get("123")).thenReturn("refresh-token");
 
             // when & then
-            assertThatCode(() -> jwtService.compareRefreshToken("123", "r-token"))
+            assertThatCode(() -> jwtService.compareRefreshToken("123", "refresh-token"))
                     .doesNotThrowAnyException();
         }
 
