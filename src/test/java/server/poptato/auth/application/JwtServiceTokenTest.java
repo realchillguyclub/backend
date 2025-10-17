@@ -178,4 +178,68 @@ class JwtServiceTokenTest extends ServiceTestConfig {
                             .isEqualTo(AuthErrorStatus._INVALID_REFRESH_TOKEN.getHttpStatus()));
         }
     }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-AUTH-JWT-003] Authorization 헤더에서 userId를 추출할 수 있다.")
+    class ExtractUserIdFromHeader {
+
+        @Test
+        @DisplayName("[TC-AUTH-HEADER-001] 정상 헤더에서 사용자 ID를 정상적으로 반환한다")
+        void extract_valid_header_returns_id() {
+            // given
+            String token = validAccess("123", BASE64_SECRET);
+
+            // when
+            Long id = jwtService.extractUserIdFromToken(bearer(token));
+
+            // then
+            assertThat(id).isEqualTo(123L);
+        }
+
+        @Test
+        @DisplayName("[TC-AUTH-HEADER-EXCEPTION-001] 헤더가 없거나 접두어가 'Bearer '가 아니면 _NOT_EXIST_ACCESS_TOKEN 예외가 발생한다")
+        void extract_missing_or_bad_prefix_throws_not_exist() {
+            // given
+            String noHeader = null;
+            String badPrefix = "Token abc";
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.extractUserIdFromToken(noHeader))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._NOT_EXIST_ACCESS_TOKEN.getHttpStatus()));
+
+            assertThatThrownBy(() -> jwtService.extractUserIdFromToken(badPrefix))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._NOT_EXIST_ACCESS_TOKEN.getHttpStatus()));
+        }
+
+        @Test
+        @DisplayName("[TC-AUTH-HEADER-EXCEPTION-002] 만료된 토큰이 담긴 헤더를 전달하면 _EXPIRED_ACCESS_TOKEN 예외가 발생한다")
+        void extract_with_expired_token_throws_expired() {
+            // given
+            String expired = expiredToken("ACCESS_TOKEN", "123", BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.extractUserIdFromToken(bearer(expired)))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._EXPIRED_ACCESS_TOKEN.getHttpStatus()));
+        }
+
+        @Test
+        @DisplayName("[TC-AUTH-HEADER-EXCEPTION-003] 서명이 불일치한 토큰이 담긴 헤더를 전달하면 _INVALID_ACCESS_TOKEN 예외가 발생한다")
+        void extract_with_forged_token_throws_invalid() {
+            // given
+            String forged = forgedToken("ACCESS_TOKEN", "123", OTHER_BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.extractUserIdFromToken(bearer(forged)))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._INVALID_ACCESS_TOKEN.getHttpStatus()));
+        }
+    }
 }
