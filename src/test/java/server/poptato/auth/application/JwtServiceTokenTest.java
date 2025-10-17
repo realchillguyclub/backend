@@ -120,4 +120,62 @@ class JwtServiceTokenTest extends ServiceTestConfig {
             assertThat(jwtService.getUserIdInToken(refreshToken)).isEqualTo(userId);
         }
     }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-AUTH-JWT-002] 만료/변조 토큰을 검증하면 적절한 예외를 받을 수 있다.")
+    class ValidateExpiredOrForgedTokens {
+
+        @Test
+        @DisplayName("[TC-VERIFY-ERRORS-001] 만료된 Access 토큰을 검증하면 _EXPIRED_ACCESS_TOKEN 예외가 발생한다")
+        void expired_access_should_throw_expired_access() {
+            // given
+            String token = expiredToken("ACCESS_TOKEN", "123", BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.verifyAccessToken(token))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(server.poptato.auth.status.AuthErrorStatus._EXPIRED_ACCESS_TOKEN.getHttpStatus()));
+        }
+
+        @Test
+        @DisplayName("[TC-VERIFY-ERRORS-002] 만료된 Refresh 토큰을 검증하면 _EXPIRED_REFRESH_TOKEN 예외가 발생한다")
+        void expired_refresh_should_throw_expired_refresh() {
+            // given
+            String token = expiredToken("REFRESH_TOKEN", "123", BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.verifyRefreshToken(token))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._EXPIRED_REFRESH_TOKEN.getHttpStatus()));
+        }
+
+        @Test
+        @DisplayName("[TC-VERIFY-ERRORS-003] 서명이 불일치한 Access 토큰을 검증하면 _INVALID_ACCESS_TOKEN 예외가 발생한다")
+        void forged_access_should_throw_invalid_access() {
+            // given
+            String token = forgedToken("ACCESS_TOKEN", "123", OTHER_BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.verifyAccessToken(token))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._INVALID_ACCESS_TOKEN.getHttpStatus()));
+        }
+
+        @Test
+        @DisplayName("[TC-VERIFY-ERRORS-004] 서명이 불일치한 Refresh 토큰을 검증하면 _INVALID_REFRESH_TOKEN 예외가 발생한다")
+        void forged_refresh_should_throw_invalid_refresh() {
+            // given
+            String token = forgedToken("REFRESH_TOKEN", "123", OTHER_BASE64_SECRET);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.verifyRefreshToken(token))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getHttpStatus())
+                            .isEqualTo(AuthErrorStatus._INVALID_REFRESH_TOKEN.getHttpStatus()));
+        }
+    }
 }
