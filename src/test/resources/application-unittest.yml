@@ -8,6 +8,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        highlight_sql: true
+        use_sql_comments: true
+
   datasource: { }
 
 logging:
