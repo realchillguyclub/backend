@@ -72,7 +72,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health, prometheus
+  server:
+    port: 9001
 
 springdoc:
   swagger-ui:
