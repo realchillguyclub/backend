@@ -108,7 +108,7 @@ public class TodoController {
     @GetMapping("/todo/{todoId}")
     public ResponseEntity<ApiResponse<TodoDetailResponseDto>> getTodoInfo(
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestHeader(value = "X-Mobile-Type", required = false, defaultValue = "ANDROID") MobileType mobileType,
+            @RequestHeader(value = "X-Mobile-Type", required = false, defaultValue = "IOS") MobileType mobileType,
             @PathVariable Long todoId
     ) {
         TodoDetailResponseDto response = todoService.getTodoInfo(jwtService.extractUserIdFromToken(authorizationHeader), mobileType, todoId);
