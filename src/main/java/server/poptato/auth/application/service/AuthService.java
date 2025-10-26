@@ -21,6 +21,7 @@ import server.poptato.user.domain.entity.Mobile;
 import server.poptato.user.domain.entity.User;
 import server.poptato.user.domain.repository.MobileRepository;
 import server.poptato.user.domain.repository.UserRepository;
+import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
 import server.poptato.user.status.MobileErrorStatus;
 import server.poptato.user.validator.UserValidator;
@@ -83,7 +84,13 @@ public class AuthService {
      * @param request 로그인 요청 정보
      */
     private void saveFcmToken(Long userId, LoginRequestDto request) {
-        Optional<Mobile> existingMobile = mobileRepository.findByClientId(request.clientId());
+        Optional<Mobile> existingMobile;
+        if (request.mobileType() == MobileType.DESKTOP) {
+            existingMobile = mobileRepository.findByUserIdAndType(userId, request.mobileType());
+        } else {
+            existingMobile = mobileRepository.findByClientId(request.clientId());
+        }
+
         if (existingMobile.isPresent()) {
             return;
         }
@@ -166,7 +173,11 @@ public class AuthService {
     */
     public void logout(final Long userId, FCMTokenRequestDto fcmTokenRequestDto) {
         userValidator.checkIsExistUser(userId);
-        mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
+        if (fcmTokenRequestDto.mobileType() == MobileType.DESKTOP) {
+            mobileRepository.deleteByUserIdAndType(userId, fcmTokenRequestDto.mobileType());
+        } else {
+            mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
+        }
         jwtService.deleteRefreshToken(String.valueOf(userId));
     }
 
@@ -177,10 +188,16 @@ public class AuthService {
      * @param reissueTokenRequestDto 토큰 갱신 요청 정보
      * @return 새로운 토큰 페어
      */
+    @Transactional
     public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto) {
         final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken());
-
         userValidator.checkIsExistUser(Long.parseLong(userId));
+
+        if (reissueTokenRequestDto.mobileType() == MobileType.DESKTOP) {
+            refreshMobile(Long.parseLong(userId), reissueTokenRequestDto.mobileType());
+        } else {
+            refreshMobile(reissueTokenRequestDto.clientId());
+        }
 
         final TokenPair tokenPair = jwtService.generateTokenPair(userId);
         jwtService.saveRefreshToken(userId, tokenPair.refreshToken());
@@ -213,14 +230,15 @@ public class AuthService {
      *
      * @param clientId fcm 토큰
      */
-    @Transactional
-    public void refreshFCMToken(String clientId) {
-        Optional<Mobile> existingMobile = mobileRepository.findByClientId(clientId);
-        if (existingMobile.isPresent()) {
-            Mobile mobile = existingMobile.get();
-            mobile.updateModifiedDate();
-            return;
-        }
-        throw new CustomException(MobileErrorStatus._NOT_EXIST_FCM_TOKEN);
+    private void refreshMobile(String clientId) {
+        Mobile existingMobile = mobileRepository.findByClientId(clientId)
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_EXIST_MOBILE));
+        existingMobile.updateModifiedDate();
+    }
+
+    private void refreshMobile(Long userId, MobileType mobileType) {
+        Mobile existingMobile = mobileRepository.findByUserIdAndType(userId, mobileType)
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_EXIST_MOBILE));
+        existingMobile.updateModifiedDate();
     }
 }

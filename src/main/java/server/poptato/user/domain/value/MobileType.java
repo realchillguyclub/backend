@@ -7,7 +7,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum MobileType {
     ANDROID(".svg"),
-    IOS(".pdf");
+    IOS(".pdf"),
+    DESKTOP(".svg");
 
     private final String imageUrlExtension;
 }
