@@ -37,7 +37,7 @@ public class TodoBacklogController {
     @GetMapping(value = "/backlogs")
     public ResponseEntity<ApiResponse<BacklogListResponseDto>> getBacklogList(
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestHeader(value = "X-Mobile-Type", required = false, defaultValue = "IOS") MobileType mobileType,
+            @RequestHeader(value = "X-Mobile-Type", required = false, defaultValue = "ANDROID") MobileType mobileType,
             @RequestParam(value = "category") Long categoryId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "8") int size
