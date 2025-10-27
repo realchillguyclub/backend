@@ -13,6 +13,9 @@ import java.util.List;
 public interface JpaMobileRepository extends MobileRepository, JpaRepository<Mobile, Long> {
 
     @Modifying
+    void deleteByClientId(String clientId);
+
+    @Modifying
     @Query("""
         DELETE FROM Mobile m
         WHERE m.modifyDate < :localDateTime
