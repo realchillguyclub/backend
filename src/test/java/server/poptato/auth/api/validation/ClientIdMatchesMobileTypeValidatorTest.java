@@ -112,7 +112,7 @@ class ClientIdMatchesMobileTypeValidatorTest {
     ) {
         assertThat(violations).hasSize(1);
         ConstraintViolation<?> constraintViolation = violations.iterator().next();
-        assertThat(constraintViolation.getPropertyPath().toString()).isEqualTo(field);
+        assertThat(constraintViolation.getPropertyPath()).hasToString(field);
         assertThat(constraintViolation.getMessage()).isEqualTo(message);
     }
 }
