@@ -38,7 +38,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.never;
 
-public class UserServiceTest extends ServiceTestConfig {
+class UserServiceTest extends ServiceTestConfig {
 
     @Mock
     JwtService jwtService;
