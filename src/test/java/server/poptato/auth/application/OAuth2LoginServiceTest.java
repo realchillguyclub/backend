@@ -47,10 +47,12 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
     @DisplayName("[SCN-SVC-OAUTH2-001] [TC-KAKAO-AUTHORIZATION-001] state/PKCE(code_verifier)가 저장되고 쿼리파라미터가 정확히 구성된 authorize URL을 반환한다")
     void buildAuthorizeRedirectForKakao_정상_URL_생성_state_PKCE_저장() {
         // given - @Value 주입 필드 설정
-        String clientId    = "test-kakao-client-id";
+        String scope = "test-scope";
+        String clientId = "test-kakao-client-id";
         String redirectUri = "https://my.app.com/oauth/kakao/callback";
         String authorizeUri= "https://kauth.kakao.com/oauth/authorize";
 
+        ReflectionTestUtils.setField(oAuth2LoginService, "defaultScope", scope);
         ReflectionTestUtils.setField(oAuth2LoginService, "kakaoClientId", clientId);
         ReflectionTestUtils.setField(oAuth2LoginService, "redirectUri", redirectUri);
         ReflectionTestUtils.setField(oAuth2LoginService, "authorizeUri", authorizeUri);
@@ -79,6 +81,8 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
 
         assertThat(authorizeUrl).startsWith(authorizeUri);
         assertThat(params.getFirst("response_type")).isEqualTo("code");
+        assertThat(params.getFirst("scope")).isEqualTo(scope);
+        assertThat(params.getFirst("prompt")).isEqualTo("none");
         assertThat(params.getFirst("client_id")).isEqualTo(clientId);
         assertThat(params.getFirst("redirect_uri")).isEqualTo(redirectUri);
         assertThat(params.getFirst("state")).isEqualTo(saved.getState());
