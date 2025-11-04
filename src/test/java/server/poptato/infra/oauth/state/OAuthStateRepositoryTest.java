@@ -62,4 +62,18 @@ class OAuthStateRepositoryTest extends RedisTestConfig {
             assertThat(afterTtl).isEmpty();
         }
     }
+
+    @Test
+    @DisplayName("[SCN-REPO-OAUTH-STATE-002][TC-FIND-EMPTY-001] 존재하지 않는 state를 조회하면 Optional.empty()를 반환한다")
+    void find_non_existing_state_returns_empty() {
+        // given
+        String unknownState = "state-not-exists";
+
+        // when
+        Optional<OAuthState> result = oAuthStateRepository.find(unknownState);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
 }
