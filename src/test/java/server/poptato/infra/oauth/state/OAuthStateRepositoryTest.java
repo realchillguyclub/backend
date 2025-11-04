@@ -76,4 +76,24 @@ class OAuthStateRepositoryTest extends RedisTestConfig {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("[SCN-REPO-OAUTH-STATE-003][TC-DELETE-001] delete 호출 시 해당 state 키가 삭제되어 재조회 시 Optional.empty()를 반환한다.")
+    void delete_then_find_empty() {
+        // given
+        OAuthState input = OAuthState.builder()
+                .state("state-delete")
+                .codeVerifier("to-be-deleted")
+                .build();
+
+        // when
+        oAuthStateRepository.save(input, Duration.ofSeconds(30));
+        assertThat(oAuthStateRepository.find("state-delete")).isPresent();
+
+        // delete
+        oAuthStateRepository.delete("state-delete");
+
+        // then
+        Optional<OAuthState> result = oAuthStateRepository.find("state-delete");
+        assertThat(result).isEmpty();
+    }
 }
