@@ -173,7 +173,7 @@ public class AuthService {
     */
     public void logout(final Long userId, FCMTokenRequestDto fcmTokenRequestDto) {
         userValidator.checkIsExistUser(userId);
-        if (fcmTokenRequestDto.mobileType() == MobileType.DESKTOP) {
+        if (MobileType.DESKTOP == fcmTokenRequestDto.mobileType()) {
             mobileRepository.deleteByUserIdAndType(userId, fcmTokenRequestDto.mobileType());
         } else {
             mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
