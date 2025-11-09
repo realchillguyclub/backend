@@ -62,7 +62,7 @@ public class FcmNotificationBatchService {
     private void sendUserTodayTodosNotification(User user) {
 		List<Todo> incompleteTodayTodos = todoRepository.findIncompleteTodayTodos(user.getId(), TodayStatus.INCOMPLETE);
 		if (!incompleteTodayTodos.isEmpty()) {
-			List<Mobile> mobiles = mobileRepository.findAllByUserId(user.getId());
+			List<Mobile> mobiles = mobileRepository.findAllPushCapableByUserId(user.getId());
 			for (Mobile mobile : mobiles) {
 				for (Todo todo : incompleteTodayTodos) {
 					String body = String.format(FcmNotificationTemplate.TODAY_TODOS.getBody(), todo.getContent());
@@ -87,7 +87,7 @@ public class FcmNotificationBatchService {
 				boolean hasIncompleteTodayTodos =
 					todoRepository.existsByUserIdAndTypeAndTodayStatus(user.getId(), Type.TODAY, TodayStatus.INCOMPLETE);
 				if (!hasIncompleteTodayTodos) {
-					List<Mobile> mobiles = mobileRepository.findAllByUserId(user.getId());
+					List<Mobile> mobiles = mobileRepository.findAllPushCapableByUserId(user.getId());
 					for (Mobile mobile : mobiles) {
 						sendPushOrDeleteToken(
 							mobile.getClientId(),
@@ -111,7 +111,7 @@ public class FcmNotificationBatchService {
                 boolean hasIncompleteTodayTodos =
                         todoRepository.existsByUserIdAndTypeAndTodayStatus(user.getId(), Type.TODAY, TodayStatus.INCOMPLETE);
                 if (hasIncompleteTodayTodos) {
-                    List<Mobile> mobiles = mobileRepository.findAllByUserId(user.getId());
+                    List<Mobile> mobiles = mobileRepository.findAllPushCapableByUserId(user.getId());
                     for (Mobile mobile : mobiles) {
                         sendPushOrDeleteToken(
                                 mobile.getClientId(),
@@ -152,7 +152,7 @@ public class FcmNotificationBatchService {
      * @param alarmList 알림을 보낼 목록
      */
     private void sendUserTimeNotification(Long userId, List<TimeAlarm> alarmList) {
-        List<Mobile> mobiles = mobileRepository.findAllByUserId(userId);
+        List<Mobile> mobiles = mobileRepository.findAllPushCapableByUserId(userId);
         for (Mobile mobile : mobiles) {
             for (TimeAlarm timeAlarm : alarmList) {
                 todoRepository.findById(timeAlarm.getTodoId())
@@ -180,7 +180,7 @@ public class FcmNotificationBatchService {
 
         BatchUtil.splitIntoBatches(users, batchSize).forEach(batch -> {
             for (User user : batch) {
-                List<Mobile> mobiles = mobileRepository.findAllByUserId(user.getId());
+                List<Mobile> mobiles = mobileRepository.findAllPushCapableByUserId(user.getId());
                 if (mobiles.isEmpty()) continue;
 
                 for (Mobile mobile : mobiles) {

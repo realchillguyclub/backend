@@ -27,7 +27,7 @@ public class Mobile extends BaseEntity {
     private MobileType type;
 
     @Lob
-    @Column(name = "client_id", columnDefinition = "LONGTEXT", nullable = false)
+    @Column(name = "client_id", columnDefinition = "VARCHAR(256)")
     private String clientId;
 
     @Transient

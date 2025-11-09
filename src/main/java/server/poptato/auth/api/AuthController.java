@@ -2,6 +2,7 @@ package server.poptato.auth.api;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import server.poptato.auth.api.request.FCMTokenRequestDto;
 import server.poptato.auth.api.request.LoginRequestDto;
@@ -33,7 +34,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponseDto>> login(
-            @RequestBody LoginRequestDto loginRequestDto
+            @Validated @RequestBody LoginRequestDto loginRequestDto
     ) {
         LoginResponseDto response = authService.login(loginRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._OK, response);
@@ -51,7 +52,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<SuccessStatus>> logout(
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestBody FCMTokenRequestDto fcmTokenRequestDto
+            @Validated @RequestBody FCMTokenRequestDto fcmTokenRequestDto
             ) {
         authService.logout(jwtService.extractUserIdFromToken(authorizationHeader), fcmTokenRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._OK);
@@ -69,10 +70,9 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenPair>> refresh(
-            @RequestBody ReissueTokenRequestDto reissueTokenRequestDto
+            @Validated @RequestBody ReissueTokenRequestDto reissueTokenRequestDto
     ) {
         TokenPair response = authService.refresh(reissueTokenRequestDto);
-        authService.refreshFCMToken(reissueTokenRequestDto.clientId());
         return ApiResponse.onSuccess(SuccessStatus._OK, response);
     }
 
