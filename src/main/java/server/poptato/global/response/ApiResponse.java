@@ -42,8 +42,7 @@ public class ApiResponse<T> {
         BaseCode code = SuccessStatus._FOUND;
         HttpHeaders headers = new HttpHeaders();
         headers.set("Location", location);
-        ApiResponse<Void> body = new ApiResponse<>(true, code.getReasonHttpStatus().getCode(), code.getReasonHttpStatus().getMessage(), null);
 
-        return ResponseEntity.status(code.getReasonHttpStatus().getHttpStatus()).headers(headers).body(body);
+        return ResponseEntity.status(code.getReasonHttpStatus().getHttpStatus()).headers(headers).build();
     }
 }
