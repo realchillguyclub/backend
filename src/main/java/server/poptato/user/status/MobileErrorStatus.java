@@ -9,8 +9,8 @@ import server.poptato.global.response.dto.ErrorReasonDto;
 @Getter
 @RequiredArgsConstructor
 public enum MobileErrorStatus implements BaseErrorCode {
-    _NOT_EXIST_FCM_TOKEN(HttpStatus.BAD_REQUEST, "FCM-001", "존재하지 않는 FCM토큰입니다."),
-    _NOT_FOUND_FCM_TOKEN_BY_USER_ID(HttpStatus.NOT_FOUND, "FCM-002", "userId로 FCM 토큰을 찾을 수 없습니다.")
+    _NOT_EXIST_MOBILE(HttpStatus.BAD_REQUEST, "FCM-001", "존재하지 않는 Mobile입니다."),
+    _NOT_FOUND_MOBILE_BY_USER_ID(HttpStatus.NOT_FOUND, "FCM-002", "userId로 Mobile을 찾을 수 없습니다.")
     ;
 
     private final HttpStatus httpStatus;
