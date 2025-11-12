@@ -53,7 +53,7 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
         String authorizeUri= "https://kauth.kakao.com/oauth/authorize";
 
         ReflectionTestUtils.setField(oAuth2LoginService, "defaultScope", scope);
-        ReflectionTestUtils.setField(oAuth2LoginService, "kakaoClientId", clientId);
+        ReflectionTestUtils.setField(oAuth2LoginService, "clientId", clientId);
         ReflectionTestUtils.setField(oAuth2LoginService, "redirectUri", redirectUri);
         ReflectionTestUtils.setField(oAuth2LoginService, "authorizeUri", authorizeUri);
 
@@ -82,7 +82,6 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
         assertThat(authorizeUrl).startsWith(authorizeUri);
         assertThat(params.getFirst("response_type")).isEqualTo("code");
         assertThat(params.getFirst("scope")).isEqualTo(scope);
-        assertThat(params.getFirst("prompt")).isEqualTo("none");
         assertThat(params.getFirst("client_id")).isEqualTo(clientId);
         assertThat(params.getFirst("redirect_uri")).isEqualTo(redirectUri);
         assertThat(params.getFirst("state")).isEqualTo(saved.getState());
@@ -98,7 +97,7 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
     class KakaoCallback {
 
         private void injectValues() {
-            ReflectionTestUtils.setField(oAuth2LoginService, "kakaoClientId", "test-kakao-client-id");
+            ReflectionTestUtils.setField(oAuth2LoginService, "clientId", "test-kakao-client-id");
             ReflectionTestUtils.setField(oAuth2LoginService, "redirectUri", "https://your.app.com/oauth/kakao/callback");
             ReflectionTestUtils.setField(oAuth2LoginService, "authorizeUri", "https://kauth.kakao.com/oauth/authorize");
         }
@@ -115,25 +114,33 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
             OAuthState saved = OAuthState.builder().state(state).codeVerifier(verifier).build();
             when(oAuthStateRepository.find(state)).thenReturn(Optional.of(saved));
 
-            ArgumentCaptor<MultiValueMap<String, String>> formCaptor = ArgumentCaptor.forClass(MultiValueMap.class);
+            ArgumentCaptor<String> clientIdCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> redirectUriCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> verifierCaptor = ArgumentCaptor.forClass(String.class);
+
             String kakaoAccessToken = "kakao-user-access-token";
-            when(kakaoSocialService.getKakaoUserAccessToken(formCaptor.capture())).thenReturn(kakaoAccessToken);
+            when(kakaoSocialService.getKakaoUserAccessToken(
+                    clientIdCaptor.capture(),
+                    redirectUriCaptor.capture(),
+                    codeCaptor.capture(),
+                    verifierCaptor.capture()
+            )).thenReturn(kakaoAccessToken);
 
             ArgumentCaptor<LoginRequestDto> requestDtoArgumentCaptor =
                     ArgumentCaptor.forClass(LoginRequestDto.class);
             LoginResponseDto expected = LoginResponseDto.of("access", "refresh", false, 123L);
             when(authService.login(requestDtoArgumentCaptor.capture())).thenReturn(expected);
 
+
             // when
             LoginResponseDto actual = oAuth2LoginService.handleKakaoCallback(code, state);
 
-            // then - 폼 검증
-            MultiValueMap<String, String> form = formCaptor.getValue();
-            assertThat(form.getFirst("grant_type")).isEqualTo("authorization_code");
-            assertThat(form.getFirst("client_id")).isEqualTo("test-kakao-client-id");
-            assertThat(form.getFirst("redirect_uri")).isEqualTo("https://your.app.com/oauth/kakao/callback");
-            assertThat(form.getFirst("code")).isEqualTo(code);
-            assertThat(form.getFirst("code_verifier")).isEqualTo(verifier);
+            // then - 카카오 요청 파라미터 검증
+            assertThat(clientIdCaptor.getValue()).isEqualTo("test-kakao-client-id");
+            assertThat(redirectUriCaptor.getValue()).isEqualTo("https://your.app.com/oauth/kakao/callback");
+            assertThat(codeCaptor.getValue()).isEqualTo(code);
+            assertThat(verifierCaptor.getValue()).isEqualTo(verifier);
 
             // then - AuthService.login 요청 DTO
             LoginRequestDto requestDto = requestDtoArgumentCaptor.getValue();
