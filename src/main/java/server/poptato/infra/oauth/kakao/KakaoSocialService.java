@@ -27,8 +27,16 @@ public class KakaoSocialService extends SocialService {
         );
     }
 
-    public String getKakaoUserAccessToken(MultiValueMap<String, String> form) {
-        KakaoTokenResponse tokenResponse = kakaoAuthClient.exchangeToken(form);
+    public String getKakaoUserAccessToken(
+            String clientId, String redirectUri, String code, String codeVerifier) {
+        KakaoTokenResponse tokenResponse = kakaoAuthClient.exchangeToken(
+                "authorization_code",
+                clientId,
+                redirectUri,
+                code,
+                codeVerifier
+        );
+
         return tokenResponse.accessToken();
     }
 }
