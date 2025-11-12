@@ -5,6 +5,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import server.poptato.infra.oauth.kakao.response.KakaoTokenResponse;
 
 @ComponentScan
 @FeignClient(name = "kakaoAuthClient", url = "https://kauth.kakao.com")

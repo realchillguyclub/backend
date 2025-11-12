@@ -3,10 +3,11 @@ package server.poptato.infra.oauth.kakao;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.util.MultiValueMap;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.infra.oauth.SocialService;
 import server.poptato.infra.oauth.SocialUserInfo;
+import server.poptato.infra.oauth.kakao.response.KakaoTokenResponse;
+import server.poptato.infra.oauth.kakao.response.KakaoUserResponse;
 
 @Service
 @RequiredArgsConstructor
