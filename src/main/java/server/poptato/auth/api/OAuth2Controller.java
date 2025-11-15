@@ -40,7 +40,7 @@ public class OAuth2Controller {
             @RequestParam(name = "error", required = false) String error,
             @RequestParam(name = "error_description", required = false) String errorDescription
     ) {
-        if (error != null || code == null || code.isBlank()) {
+        if (state == null || state.isBlank() || code == null || code.isBlank()) {
             oAuth2LoginService.cleanupState(state);
             return ApiResponse.onFailure(AuthErrorStatus._OAUTH_ACCESS_DENIED);
         }
