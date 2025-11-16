@@ -84,7 +84,8 @@ public class OAuth2LoginService {
                 .queryParam("state", state)
                 .queryParam("code_challenge_method", "S256")
                 .queryParam("code_challenge", codeChallenge)
-                .build(true)
+                .build()
+                .encode()
                 .toUriString()
         );
     }
