@@ -8,6 +8,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import server.poptato.auth.api.request.LoginRequestDto;
+import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.service.AuthService;
 import server.poptato.auth.application.service.OAuth2LoginService;
@@ -63,7 +64,7 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
         doNothing().when(oAuthStateRepository).save(stateCaptor.capture(), ttlCaptor.capture());
 
         // when
-        String authorizeUrl = oAuth2LoginService.buildAuthorizeRedirectForKakao();
+        AuthorizeUrlResponseDto response = oAuth2LoginService.buildAuthorizeRedirectForKakao();
 
         // then - 저장 검증
         verify(oAuthStateRepository).save(any(OAuthState.class), any(Duration.class));
@@ -77,9 +78,9 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
 
         // then - URL 쿼리 파싱 및 검증
         MultiValueMap<String, String> params =
-                UriComponentsBuilder.fromUriString(authorizeUrl).build(true).getQueryParams();
+                UriComponentsBuilder.fromUriString(response.authorizeUrl()).build(true).getQueryParams();
 
-        assertThat(authorizeUrl).startsWith(authorizeUri);
+        assertThat(response.authorizeUrl()).startsWith(authorizeUri);
         assertThat(params.getFirst("response_type")).isEqualTo("code");
         assertThat(params.getFirst("scope")).isEqualTo(scope);
         assertThat(params.getFirst("client_id")).isEqualTo(clientId);

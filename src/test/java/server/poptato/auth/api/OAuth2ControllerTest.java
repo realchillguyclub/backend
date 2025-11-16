@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.restdocs.headers.HeaderDocumentation;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.test.web.servlet.ResultActions;
+import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.auth.status.AuthErrorStatus;
@@ -38,12 +39,12 @@ class OAuth2ControllerTest extends ControllerTestConfig {
     private OAuth2LoginService oAuth2LoginService;
 
     @Test
-    @DisplayName("[SCN-API-AUTH-OAUTH2-001] 인가 시작 시 Kakao authorize URL로 302 리다이렉트한다.")
+    @DisplayName("[SCN-API-AUTH-OAUTH2-001] 인가 시작 시 Kakao authorize URL을 반환한다.")
     void authorize_redirects_to_kakao() throws Exception {
         // given
         String authorizeUrl = "https://kauth.kakao.com/oauth/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&response_type=code&state=xyz";
-        given(oAuth2LoginService.buildAuthorizeRedirectForKakao()).willReturn(authorizeUrl);
-
+        AuthorizeUrlResponseDto responseDto = AuthorizeUrlResponseDto.of(authorizeUrl);
+        given(oAuth2LoginService.buildAuthorizeRedirectForKakao()).willReturn(responseDto);
         // when
         ResultActions result = this.mockMvc.perform(
                 RestDocumentationRequestBuilders.get("/auth/oauth2/kakao/authorize")
@@ -51,20 +52,25 @@ class OAuth2ControllerTest extends ControllerTestConfig {
         );
 
         // then
-        result.andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", authorizeUrl))
-
+        result.andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-200"))
+                .andExpect(jsonPath("$.message").value("요청 응답에 성공했습니다."))
+                .andExpect(jsonPath("$.result.authorizeUrl").value("https://kauth.kakao.com/oauth/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&response_type=code&state=xyz"))
                 // docs
                 .andDo(MockMvcRestDocumentationWrapper.document("auth/oauth2/kakao/authorize",
                         preprocessRequest(prettyPrint()),
                         preprocessResponse(prettyPrint()),
                         resource(ResourceSnippetParameters.builder()
                                 .tag("Auth OAuth2 API")
-                                .description("인가 시작 엔드포인트: 서버가 state/PKCE를 저장하고 Kakao authorize URL로 302 리다이렉트한다. (카카오 전용)")
-                                .responseHeaders(
-                                        HeaderDocumentation.headerWithName("Location").description("리다이렉트될 Kakao authorize URL")
+                                .description("인가 시작 엔드포인트: 서버가 state/PKCE를 저장하고 Kakao authorize URL을 반환한다. (카카오 전용)")
+                                .responseFields(
+                                        fieldWithPath("isSuccess").type(BOOLEAN).description("성공 여부"),
+                                        fieldWithPath("code").type(STRING).description("응답 코드"),
+                                        fieldWithPath("message").type(STRING).description("응답 메시지"),
+                                        fieldWithPath("result.authorizeUrl").type(STRING).description("브라우저로 띄울 URL")
                                 )
-                                .responseSchema(Schema.schema("OAuth2AuthorizeRedirectResponse"))
+                                .responseSchema(Schema.schema("OAuth2AuthorizeUrlResponseSchema"))
                                 .build()
                         )
                 ));
