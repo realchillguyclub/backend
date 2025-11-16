@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.auth.status.AuthErrorStatus;
@@ -20,13 +21,13 @@ public class OAuth2Controller {
 
     /**
      * 인가 시작 엔드포인트: state/PKCE를 저장하고 카카오 authorize URL로 302 한다.
-     * @return 카카오 authorize URL로 redirect
+     * @return 카카오 authorize URL 반환
      */
     @GetMapping("/kakao/authorize")
-    public ResponseEntity<ApiResponse<Void>> authorize(
+    public ResponseEntity<ApiResponse<AuthorizeUrlResponseDto>> authorize(
     ) {
-        String authorizeUrl = oAuth2LoginService.buildAuthorizeRedirectForKakao();
-        return ApiResponse.redirect(authorizeUrl);
+        AuthorizeUrlResponseDto response = oAuth2LoginService.buildAuthorizeRedirectForKakao();
+        return ApiResponse.onSuccess(SuccessStatus._OK, response);
     }
 
     /**

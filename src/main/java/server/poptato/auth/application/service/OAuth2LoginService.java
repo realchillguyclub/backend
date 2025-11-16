@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 import server.poptato.auth.api.request.LoginRequestDto;
+import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.exception.CustomException;
@@ -56,7 +57,7 @@ public class OAuth2LoginService {
      *
      * @return 완성된 카카오 로그인 authorize URL (클라이언트가 이 URL을 열어 로그인 수행)
      */
-    public String buildAuthorizeRedirectForKakao() {
+    public AuthorizeUrlResponseDto buildAuthorizeRedirectForKakao() {
         // 1. state (CSRF 방지 토큰) 생성
         String state = UUID.randomUUID().toString();
 
@@ -74,7 +75,8 @@ public class OAuth2LoginService {
         );
 
         // 4. 카카오 인가 URL 조립
-        return UriComponentsBuilder.fromUriString(authorizeUri)
+        return AuthorizeUrlResponseDto.of(
+                UriComponentsBuilder.fromUriString(authorizeUri)
                 .queryParam("response_type", "code")
                 .queryParam("scope", defaultScope)
                 .queryParam("client_id", clientId)
@@ -83,7 +85,8 @@ public class OAuth2LoginService {
                 .queryParam("code_challenge_method", "S256")
                 .queryParam("code_challenge", codeChallenge)
                 .build(true)
-                .toUriString();
+                .toUriString()
+        );
     }
 
     /**

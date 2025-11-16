@@ -11,8 +11,7 @@ import server.poptato.global.response.dto.ReasonDto;
 public enum SuccessStatus implements BaseCode {
     // Global
     _OK(HttpStatus.OK, "GLOBAL-200", "요청 응답에 성공했습니다."),
-    _CREATED(HttpStatus.CREATED, "GLOBAL-201", "생성에 성공했습니다."),
-    _FOUND(HttpStatus.FOUND, "GLOBAL-302", "FOUND");
+    _CREATED(HttpStatus.CREATED, "GLOBAL-201", "생성에 성공했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
