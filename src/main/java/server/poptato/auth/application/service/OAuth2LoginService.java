@@ -1,6 +1,7 @@
 package server.poptato.auth.application.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,9 +9,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
+import server.poptato.auth.application.response.OAuthCallbackResult;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.exception.CustomException;
 import server.poptato.infra.oauth.kakao.KakaoSocialService;
+import server.poptato.infra.oauth.pending.DesktopPendingLoginRepository;
+import server.poptato.infra.oauth.pending.PendingLogin;
 import server.poptato.infra.oauth.state.OAuthState;
 import server.poptato.infra.oauth.state.OAuthStateRepository;
 import server.poptato.infra.oauth.state.PKCEUtils;
@@ -18,13 +22,16 @@ import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OAuth2LoginService {
 
     private final OAuthStateRepository oAuthStateRepository;
+    private final DesktopPendingLoginRepository desktopPendingLoginRepository;
     private final KakaoSocialService kakaoSocialService;
     private final AuthService authService;
 
@@ -39,6 +46,9 @@ public class OAuth2LoginService {
 
     @Value("${oauth.kakao.scope}")
     private String defaultScope;
+
+    private static final Duration STATE_TTL = Duration.ofMinutes(10);
+    private static final Duration PENDING_TTL = Duration.ofMinutes(3);
 
     /**
      * ************************************
@@ -71,68 +81,112 @@ public class OAuth2LoginService {
                         .state(state)
                         .codeVerifier(codeVerifier)
                         .build(),
-                Duration.ofMinutes(10)
+                STATE_TTL
         );
 
         // 4. 카카오 인가 URL 조립
-        return AuthorizeUrlResponseDto.of(
-                UriComponentsBuilder.fromUriString(authorizeUri)
-                .queryParam("response_type", "code")
-                .queryParam("scope", defaultScope)
+        String url = UriComponentsBuilder.fromUriString(authorizeUri)
                 .queryParam("client_id", clientId)
                 .queryParam("redirect_uri", redirectUri)
+                .queryParam("response_type", "code")
+                .queryParam("scope", defaultScope)
                 .queryParam("state", state)
                 .queryParam("code_challenge_method", "S256")
                 .queryParam("code_challenge", codeChallenge)
                 .build()
                 .encode()
-                .toUriString()
-        );
+                .toUriString();
+
+        return AuthorizeUrlResponseDto.of(url, state);
     }
 
     /**
-     * ***********************************************
-     * 카카오 콜백 처리 및 로그인 후 토큰 발급
-     * ***********************************************
+     * ****************************************************
+     * 2. 카카오 콜백 처리 (Desktop 전용, HTML 응답 전 단계)
+     * ****************************************************
      *
-     * [주요 역할]
-     * 1. 카카오 콜백으로 전달된 code/state 검증
-     * 2. state 기반으로 Redis에서 code_verifier 복원
-     * 3. 카카오 토큰 교환 API 호출 (grant_type=authorization_code)
-     * 4. access_token 획득 후 기존 AuthService.login() 재사용
-     * 5. Redis state 삭제 (재사용/리플레이 방지)
+     * [역할]
+     * - error/code/state 파라미터를 해석하여 콜백 상태를 분류하고,
+     *   실제 OAuth 플로우(state 검증, 토큰 교환, pending 저장)를 수행한다.
      *
-     * [보안 포인트]
-     * - state 불일치 시 _INVALID_STATE 예외 발생
-     * - code_verifier 불일치 시 카카오가 token 교환 거부
+     * [반환값]
+     * - OAuthCallbackResult enum (SUCCESS / CANCELED / INVALID_REQUEST / ERROR)
      *
-     * @param code 카카오가 전달한 인가 코드
-     * @param state 최초 인가 요청 시 서버가 저장한 상태 토큰
-     * @return 로그인 결과 (accessToken, refreshToken, userId, isNewUser)
+     * 컨트롤러는 이 결과만 가지고 어떤 HTML을 내려줄지 결정하며,
+     * JWT 발급은 이후 폴링 단계에서 처리한다.
      */
     @Transactional
-    public LoginResponseDto handleKakaoCallback(String code, String state) {
-        // 1. state 검증 및 복원
-        OAuthState savedState = oAuthStateRepository.find(state)
-                .orElseThrow(() -> new CustomException(AuthErrorStatus._INVALID_STATE));
+    public OAuthCallbackResult handleKakaoCallback(String code, String state, String error) {
+        if (error != null) {
+            cleanupState(state);
+            return OAuthCallbackResult.CANCELED;
+        }
+
+        if (isBlank(code) || isBlank(state)) {
+            cleanupState(state);
+            return OAuthCallbackResult.INVALID_REQUEST;
+        }
 
         try {
-            // 2. 카카오로 토큰 요청 → access_token 획득
+            OAuthState savedState = oAuthStateRepository.find(state)
+                    .orElseThrow(() -> new CustomException(AuthErrorStatus._INVALID_STATE));
+
             String accessToken = kakaoSocialService.getKakaoUserAccessToken(
                     clientId,
                     redirectUri,
                     code,
-                    savedState.getCodeVerifier());
+                    savedState.getCodeVerifier()
+            );
 
-            // 3. 기존 AuthService 로직 재사용 (로그인 처리 + JWT 발급)
-            LoginRequestDto requestDto =
-                    new LoginRequestDto(SocialType.KAKAO, accessToken, MobileType.DESKTOP, null, null, null);
+            desktopPendingLoginRepository.save(state, accessToken, PENDING_TTL);
+            return OAuthCallbackResult.SUCCESS;
 
-            return authService.login(requestDto);
+        } catch (Exception e) {
+            return OAuthCallbackResult.ERROR;
         } finally {
-            // 4. state 정보 제거 (원타임 보장)
             cleanupState(state);
         }
+    }
+
+
+    /**
+     * ********************************************
+     * 3. 데스크탑 전용 폴링 API 비즈니스 로직
+     * ********************************************
+     *
+     * [역할]
+     * 1) state로 pending 저장소에서 카카오 access_token 조회
+     * 2) 없으면 아직 콜백 미도착 또는 TTL 만료 → Optional.empty()
+     * 3) 있으면 pending 삭제 후 AuthService.login() 호출
+     * 4) JWT(access/refresh) + userId + isNewUser 가 포함된 LoginResponseDto 반환
+     *
+     * [주의]
+     * - JWT 생성 및 refreshToken 저장은 AuthService.login() 내부에서 처리한다.
+     */
+    @Transactional
+    public Optional<LoginResponseDto> pollDesktopLogin(String state) {
+        Optional<PendingLogin> pendingLoginOptional = desktopPendingLoginRepository.find(state);
+
+        if (pendingLoginOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        desktopPendingLoginRepository.delete(state);
+
+        String kakaoAccessToken = pendingLoginOptional.get().accessToken();
+
+        LoginRequestDto requestDto = new LoginRequestDto(
+                SocialType.KAKAO,
+                kakaoAccessToken,
+                MobileType.DESKTOP,
+                null,
+                null,
+                null
+        );
+
+        LoginResponseDto loginResponse = authService.login(requestDto);
+
+        return Optional.of(loginResponse);
     }
 
     /**
@@ -143,5 +197,9 @@ public class OAuth2LoginService {
      */
     public void cleanupState(String state) {
         oAuthStateRepository.delete(state);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -4,12 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import server.poptato.auth.api.view.OAuthCallbackHtml;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
+import server.poptato.auth.application.response.OAuthCallbackResult;
 import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.response.ApiResponse;
 import server.poptato.global.response.status.SuccessStatus;
+import java.util.Optional;
 
 @Slf4j
 @RestController
@@ -31,22 +34,48 @@ public class OAuth2Controller {
     }
 
     /**
-     * 콜백 엔드포인트: code/state 검증 후 토큰 교환, JWT 생성
-     * @return 로그인 결과로 액세스 토큰, 리프레시 토큰, 유저 ID, 신규 유저 여부를 포함한 응답
+     * 콜백 엔드포인트:
+     * - code/state 검증
+     * - 카카오 토큰 교환
+     * - 데스크탑 폴링을 위한 로그인 대기 상태 저장
+     * - HTML 페이지 응답 (JWT는 폴링 API에서 발급)
      */
     @GetMapping("/kakao/callback")
-    public ResponseEntity<ApiResponse<Object>> callback(
-            @RequestParam String code,
-            @RequestParam String state,
+    public ResponseEntity<String> callback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
             @RequestParam(name = "error", required = false) String error,
             @RequestParam(name = "error_description", required = false) String errorDescription
     ) {
-        if (state == null || state.isBlank() || code == null || code.isBlank()) {
-            oAuth2LoginService.cleanupState(state);
-            return ApiResponse.onFailure(AuthErrorStatus._OAUTH_ACCESS_DENIED);
-        }
+        OAuthCallbackResult result = oAuth2LoginService.handleKakaoCallback(code, state, error);
 
-        LoginResponseDto response = oAuth2LoginService.handleKakaoCallback(code, state);
-        return ApiResponse.onSuccess(SuccessStatus._OK, response);
+        return switch (result) {
+            case SUCCESS -> ApiResponse.htmlOnSuccess(OAuthCallbackHtml.SUCCESS.html());
+            case CANCELED -> ApiResponse.htmlOnFailure(AuthErrorStatus._OAUTH_ACCESS_DENIED, OAuthCallbackHtml.CANCELED.html());
+            case INVALID_REQUEST -> ApiResponse.htmlOnFailure(AuthErrorStatus._OAUTH_ACCESS_DENIED, OAuthCallbackHtml.INVALID_REQUEST.html());
+            case ERROR -> ApiResponse.htmlOnFailure(AuthErrorStatus._OAUTH_ACCESS_DENIED, OAuthCallbackHtml.ERROR.html());
+        };
+    }
+
+    /**
+     * ****************************************************
+     * [GET] /auth/oauth2/kakao/desktop/poll?state=...
+     * ****************************************************
+     *
+     * 데스크탑 앱이 주기적으로 호출하는 폴링 엔드포인트.
+     *
+     * [동작]
+     * - pending 상태가 없으면 : 204 No Content
+     * - pending 상태가 있으면 :
+     *      1) AuthService.login() 호출
+     *      2) access/refresh token, userId, isNewUser 가 포함된 JSON 반환
+     */
+    @GetMapping("/kakao/desktop/poll")
+    public ResponseEntity<ApiResponse<LoginResponseDto>> poll(@RequestParam String state) {
+        Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state);
+
+        return result.map(loginResponseDto ->
+                ApiResponse.onSuccess(SuccessStatus._OK, loginResponseDto))
+                .orElseGet(() -> ApiResponse.onSuccess(SuccessStatus._NO_CONTENT));
     }
 }
