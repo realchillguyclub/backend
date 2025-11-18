@@ -12,9 +12,12 @@ import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.test.web.servlet.ResultActions;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
+import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.response.OAuthCallbackResult;
 import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.configuration.ControllerTestConfig;
+
+import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -169,5 +172,114 @@ class OAuth2ControllerTest extends ControllerTestConfig {
 
         verify(oAuth2LoginService, times(1)).handleKakaoCallback("", state, error);
         verify(oAuth2LoginService, never()).handleKakaoCallback(Mockito.eq("auth-code"), anyString(), anyString());
+    }
+
+    // ======================================================================
+    //  [SCN-API-AUTH-OAUTH2-004/005] 데스크탑 폴링(poll) 엔드포인트 테스트
+    // ======================================================================
+
+    @Test
+    @DisplayName("[SCN-API-AUTH-OAUTH2-004] pending 상태가 존재하면 로그인 응답(JSON)을 반환한다.")
+    void desktop_poll_success() throws Exception {
+        // given
+        String state = "desktop-state";
+        LoginResponseDto responseDto = LoginResponseDto.of(
+                "access-token",
+                "refresh-token",
+                true,
+                1L
+        );
+
+        given(oAuth2LoginService.pollDesktopLogin(state))
+                .willReturn(Optional.of(responseDto));
+
+        // when
+        ResultActions result = mockMvc.perform(
+                RestDocumentationRequestBuilders.get("/auth/oauth2/kakao/desktop/poll")
+                        .param("state", state)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-200"))
+                .andExpect(jsonPath("$.message").value("요청 응답에 성공했습니다."))
+                .andExpect(jsonPath("$.result.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.result.refreshToken").value("refresh-token"))
+                .andExpect(jsonPath("$.result.isNewUser").value(true))
+                .andExpect(jsonPath("$.result.userId").value(1L))
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("auth/oauth2/kakao/desktop/poll/success",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(ResourceSnippetParameters.builder()
+                                .tag("Auth OAuth2 API")
+                                .description("데스크탑 앱이 카카오 로그인 완료 여부를 조회하는 폴링 엔드포인트.\n" +
+                                        "pending 상태가 존재하면 JWT 및 유저 정보를 반환한다.")
+                                .queryParameters(
+                                        parameterWithName("state").description("인가 시작 시 발급된 state 값 (폴링 식별자)")
+                                )
+                                .responseFields(
+                                        fieldWithPath("isSuccess").type(BOOLEAN).description("성공 여부"),
+                                        fieldWithPath("code").type(STRING).description("응답 코드"),
+                                        fieldWithPath("message").type(STRING).description("응답 메시지"),
+                                        fieldWithPath("result.accessToken").type(STRING).description("발급된 액세스 토큰"),
+                                        fieldWithPath("result.refreshToken").type(STRING).description("발급된 리프레시 토큰"),
+                                        fieldWithPath("result.isNewUser").type(BOOLEAN).description("신규 유저 여부"),
+                                        fieldWithPath("result.userId").type(NUMBER).description("유저 ID")
+                                )
+                                .responseSchema(Schema.schema("DesktopPollLoginSuccessResponse"))
+                                .build()
+                        )
+                ));
+
+        verify(oAuth2LoginService, times(1)).pollDesktopLogin(state);
+    }
+
+    @Test
+    @DisplayName("[SCN-API-AUTH-OAUTH2-005] pending 상태가 없으면 204 No Content 응답을 반환한다.")
+    void desktop_poll_no_content() throws Exception {
+        // given
+        String state = "desktop-state-no-pending";
+
+        given(oAuth2LoginService.pollDesktopLogin(state))
+                .willReturn(Optional.empty());
+
+        // when
+        ResultActions result = mockMvc.perform(
+                RestDocumentationRequestBuilders.get("/auth/oauth2/kakao/desktop/poll")
+                        .param("state", state)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-204"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.result").doesNotExist())
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("auth/oauth2/kakao/desktop/poll/no-content",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(ResourceSnippetParameters.builder()
+                                .tag("Auth OAuth2 API")
+                                .description("데스크탑 폴링 엔드포인트: 아직 pending 상태가 없거나 TTL이 만료된 경우 204 No Content를 반환한다.")
+                                .queryParameters(
+                                        parameterWithName("state").description("인가 시작 시 발급된 state 값 (폴링 식별자)")
+                                )
+                                .responseFields(
+                                        fieldWithPath("isSuccess").type(BOOLEAN).description("성공 여부 (항상 true)"),
+                                        fieldWithPath("code").type(STRING).description("응답 코드 (예: GLOBAL-204)"),
+                                        fieldWithPath("message").type(STRING).description("응답 메시지"),
+                                        fieldWithPath("result").optional().type(NULL).description("항상 null (본문 데이터 없음)")
+                                )
+                                .responseSchema(Schema.schema("DesktopPollNoContentResponse"))
+                                .build()
+                        )
+                ));
+
+        verify(oAuth2LoginService, times(1)).pollDesktopLogin(state);
     }
 }
