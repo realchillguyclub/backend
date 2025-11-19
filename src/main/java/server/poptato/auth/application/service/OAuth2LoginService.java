@@ -176,7 +176,7 @@ public class OAuth2LoginService {
         String kakaoAccessToken = pendingLoginOptional.get().accessToken();
 
         LoginRequestDto requestDto = new LoginRequestDto(
-                SocialType.KAKAO,
+                pendingLoginOptional.get().socialType(),
                 kakaoAccessToken,
                 MobileType.DESKTOP,
                 null,

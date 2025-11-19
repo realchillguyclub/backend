@@ -30,7 +30,7 @@ public class DesktopPendingLoginRepository {
         }
 
         String[] parts = value.split("\\|", 2);
-        return Optional.of(new PendingLogin(parts[0], parts[1]));
+        return Optional.of(new PendingLogin(SocialType.valueOf(parts[0]), parts[1]));
     }
 
     public void delete(String state) {
