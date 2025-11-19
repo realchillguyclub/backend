@@ -8,8 +8,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.RedisConnectionFailureException;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import server.poptato.auth.infra.JwtRepository;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.dto.TokenPair;
 import server.poptato.global.exception.CustomException;
@@ -18,8 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +34,7 @@ public class JwtService {
     public static final int ACCESS_TOKEN_EXPIRATION_MINUTE = 20;
     public static final int REFRESH_TOKEN_EXPIRATION_DAYS = 14;
 
-    private final StringRedisTemplate stringRedisTemplate;
+    private final JwtRepository jwtRepository;
 
     /**
      * JWT 비밀키를 Base64로 인코딩합니다.
@@ -144,11 +142,10 @@ public class JwtService {
      */
     public void compareRefreshToken(final String userId, final String refreshToken) {
         try {
-            final String storedRefreshToken = stringRedisTemplate.opsForValue().get(userId);
-
-            if (storedRefreshToken == null) {
-                throw new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN_IN_REDIS);
-            }
+            final String storedRefreshToken = jwtRepository.findRefreshToken(userId)
+                    .orElseThrow(() ->
+                            new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN_IN_REDIS)
+                    );
 
             if (!storedRefreshToken.equals(refreshToken)) {
                 throw new CustomException(AuthErrorStatus._DIFFERENT_REFRESH_TOKEN);
@@ -165,7 +162,7 @@ public class JwtService {
      * @param refreshToken 저장할 리프레시 토큰
      */
     public void saveRefreshToken(final String userId, final String refreshToken) {
-        stringRedisTemplate.opsForValue().set(userId, refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS, TimeUnit.DAYS);
+        jwtRepository.saveRefreshToken(userId, refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS);
     }
 
     /**
@@ -174,7 +171,7 @@ public class JwtService {
      * @param userId 유저 ID
      */
     public void deleteRefreshToken(final String userId) {
-        stringRedisTemplate.delete(userId);
+        jwtRepository.deleteRefreshToken(userId);
     }
 
     /**
