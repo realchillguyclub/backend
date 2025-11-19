@@ -13,9 +13,11 @@ import server.poptato.auth.infra.JwtRepository;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.dto.TokenPair;
 import server.poptato.global.exception.CustomException;
+import server.poptato.user.domain.value.MobileType;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Date;
 
@@ -29,10 +31,8 @@ public class JwtService {
     private static final String USER_ID = "USER_ID";
     private static final String ACCESS_TOKEN = "ACCESS_TOKEN";
     private static final String REFRESH_TOKEN = "REFRESH_TOKEN";
-    public static final int MINUTE_IN_MILLISECONDS = 60 * 1000;
-    public static final long DAYS_IN_MILLISECONDS = 24 * 60 * 60 * 1000L;
-    public static final int ACCESS_TOKEN_EXPIRATION_MINUTE = 20;
-    public static final int REFRESH_TOKEN_EXPIRATION_DAYS = 14;
+    public static final Duration ACCESS_TOKEN_EXPIRATION_MINUTE  = Duration.ofMinutes(20);
+    public static final Duration REFRESH_TOKEN_EXPIRATION_DAYS = Duration.ofDays(14);
 
     private final JwtRepository jwtRepository;
 
@@ -124,12 +124,14 @@ public class JwtService {
      * 생성된 리프레시 토큰은 Redis에 저장됩니다.
      *
      * @param userId 유저 ID
+     * @param mobileType 모바일 타입
+     *
      * @return 생성된 토큰 페어 (액세스 토큰, 리프레시 토큰)
      */
-    public TokenPair generateTokenPair(final String userId) {
+    public TokenPair generateTokenPair(final String userId, final MobileType mobileType) {
         final String accessToken = createAccessToken(userId);
         final String refreshToken = createRefreshToken(userId);
-        saveRefreshToken(userId, refreshToken);
+        saveRefreshToken(userId, mobileType, refreshToken);
         return new TokenPair(accessToken, refreshToken);
     }
 
@@ -137,12 +139,13 @@ public class JwtService {
      * Redis에 저장된 리프레시 토큰과 입력받은 리프레시 토큰을 비교합니다.
      *
      * @param userId 유저 ID
+     * @param mobileType 모바일 타입
      * @param refreshToken 입력받은 리프레시 토큰
      * @throws CustomException 저장된 리프레시 토큰과 일치하지 않을 경우
      */
-    public void compareRefreshToken(final String userId, final String refreshToken) {
+    public void compareRefreshToken(final String userId, final MobileType mobileType, final String refreshToken) {
         try {
-            final String storedRefreshToken = jwtRepository.findRefreshToken(userId)
+            final String storedRefreshToken = jwtRepository.findRefreshToken(userId, mobileType)
                     .orElseThrow(() ->
                             new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN_IN_REDIS)
                     );
@@ -159,19 +162,30 @@ public class JwtService {
      * 리프레시 토큰을 Redis에 저장합니다.
      *
      * @param userId 유저 ID
+     * @param mobileType 모바일 타입
      * @param refreshToken 저장할 리프레시 토큰
      */
-    public void saveRefreshToken(final String userId, final String refreshToken) {
-        jwtRepository.saveRefreshToken(userId, refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS);
+    public void saveRefreshToken(final String userId, final MobileType mobileType, final String refreshToken) {
+        jwtRepository.saveRefreshToken(userId, mobileType, refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS);
     }
 
     /**
      * Redis에 저장된 리프레시 토큰을 삭제합니다.
      *
      * @param userId 유저 ID
+     * @param mobileType 모바일 타입
      */
-    public void deleteRefreshToken(final String userId) {
-        jwtRepository.deleteRefreshToken(userId);
+    public void deleteRefreshToken(final String userId, final MobileType mobileType) {
+        jwtRepository.deleteRefreshToken(userId, mobileType);
+    }
+
+    /**
+     * 특정 유저의 모든 기기(ANDROID/IOS/DESKTOP)에 대한 리프레시 토큰을 삭제합니다.
+     *
+     * @param userId 유저 ID
+     */
+    public void deleteAllRefreshTokens(String userId) {
+        jwtRepository.deleteAllRefreshTokens(userId);
     }
 
     /**
@@ -198,7 +212,7 @@ public class JwtService {
         return Jwts.claims()
                 .setSubject(REFRESH_TOKEN)
                 .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION_DAYS * DAYS_IN_MILLISECONDS));
+                .setExpiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION_DAYS.toMillis()));
     }
 
     /**
@@ -211,7 +225,7 @@ public class JwtService {
         return Jwts.claims()
                 .setSubject(ACCESS_TOKEN)
                 .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRATION_MINUTE * MINUTE_IN_MILLISECONDS));
+                .setExpiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis()));
     }
 
     /**
