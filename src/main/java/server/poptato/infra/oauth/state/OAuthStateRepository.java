@@ -27,7 +27,7 @@ public class OAuthStateRepository {
      * 3. TTL 설정 → 일정 시간이 지나면 자동 삭제
      */
     public void save(OAuthState oAuthState, Duration ttl) {
-        String key = key(oAuthState.getState());
+        String key = buildKey(oAuthState.getState());
         stringRedisTemplate.opsForValue().set(key, oAuthState.getCodeVerifier(), ttl);
     }
 
@@ -45,7 +45,7 @@ public class OAuthStateRepository {
      * 3. 존재하면 code_verifier를 읽어서 OAuthState 복원
      */
     public Optional<OAuthState> find(String state) {
-        String key = key(state);
+        String key = buildKey(state);
 
         String codeVerifier = stringRedisTemplate.opsForValue().get(key);
         if (codeVerifier == null) {
@@ -70,7 +70,7 @@ public class OAuthStateRepository {
      * - 로그인 취소나 에러 발생 시도 즉시 삭제하여 리플레이 공격 차단
      */
     public void delete(String state) {
-        stringRedisTemplate.delete(key(state));
+        stringRedisTemplate.delete(buildKey(state));
     }
 
     /**
@@ -78,7 +78,7 @@ public class OAuthStateRepository {
      * @param string state 문자열
      * @return oauth:state:{state} 형식의 키
      */
-    private static String key(String string) {
+    private String buildKey(String string) {
         return "oauth:state:" + string;
     }
 }

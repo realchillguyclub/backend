@@ -18,13 +18,13 @@ public class DesktopPendingLoginRepository {
 
     public void save(String state, String accessToken, Duration ttl) {
         String value = SocialType.KAKAO + "|" + accessToken;
-        String redisKey = key(state);
+        String redisKey = buildKey(state);
         stringRedisTemplate.opsForValue().set(redisKey, value, ttl);
     }
 
 
     public Optional<PendingLogin> find(String state) {
-        String value = stringRedisTemplate.opsForValue().get(key(state));
+        String value = stringRedisTemplate.opsForValue().get(buildKey(state));
         if (value == null) {
             return Optional.empty();
         }
@@ -34,10 +34,10 @@ public class DesktopPendingLoginRepository {
     }
 
     public void delete(String state) {
-        stringRedisTemplate.delete(key(state));
+        stringRedisTemplate.delete(buildKey(state));
     }
 
-    private String key(String state) {
+    private String buildKey(String state) {
         return "oauth:desktop:pending:" + state;
     }
 }
