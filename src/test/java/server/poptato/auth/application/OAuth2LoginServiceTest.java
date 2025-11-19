@@ -218,7 +218,7 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
             String state = "state-UUID";
             String kakaoAccessToken = "kakao-access-token";
 
-            PendingLogin pendingLogin = new PendingLogin(SocialType.KAKAO.name(), kakaoAccessToken);
+            PendingLogin pendingLogin = new PendingLogin(SocialType.KAKAO, kakaoAccessToken);
             when(desktopPendingLoginRepository.find(state)).thenReturn(Optional.of(pendingLogin));
 
             LoginResponseDto expected = LoginResponseDto.of("access-token", "refresh-token", false, 123L);
