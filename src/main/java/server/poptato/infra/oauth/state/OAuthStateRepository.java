@@ -75,10 +75,10 @@ public class OAuthStateRepository {
 
     /**
      * Redis 키 네임스페이스 생성
-     * @param string state 문자열
+     * @param state state 문자열
      * @return oauth:state:{state} 형식의 키
      */
-    private String buildKey(String string) {
-        return "oauth:state:" + string;
+    private String buildKey(String state) {
+        return "oauth:state:" + state;
     }
 }
