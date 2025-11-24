@@ -58,17 +58,13 @@ public class OAuth2Controller {
     }
 
     /**
-     * ****************************************************
-     * [GET] /auth/oauth2/kakao/desktop/poll?state=...
-     * ****************************************************
-     *
      * 데스크탑 앱이 주기적으로 호출하는 폴링 엔드포인트.
      *
      * [동작]
      * - pending 상태가 없으면 : 204 No Content
      * - pending 상태가 있으면 :
      *      1) AuthService.login() 호출
-     *      2) access/refresh token, userId, isNewUser 가 포함된 JSON 반환
+     *      2) 로그인 결과로 액세스 토큰, 리프레시 토큰, 유저 ID, 신규 유저 여부를 포함한 응답
      */
     @GetMapping("/kakao/desktop/poll")
     public ResponseEntity<ApiResponse<LoginResponseDto>> poll(@RequestParam String state) {
