@@ -19,7 +19,6 @@ import server.poptato.infra.oauth.state.OAuthState;
 import server.poptato.infra.oauth.state.OAuthStateRepository;
 import server.poptato.infra.oauth.state.PKCEUtils;
 import server.poptato.user.domain.value.MobileType;
-import server.poptato.user.domain.value.SocialType;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -160,8 +159,7 @@ public class OAuth2LoginService {
      * 3) 있으면 pending 삭제 후 AuthService.login() 호출
      * 4) JWT(access/refresh) + userId + isNewUser 가 포함된 LoginResponseDto 반환
      *
-     * [주의]
-     * - JWT 생성 및 refreshToken 저장은 AuthService.login() 내부에서 처리한다.
+     * - JWT 생성 및 refreshToken 저장은 기존 로직 AuthService.login()으로 처리한다.
      */
     @Transactional
     public Optional<LoginResponseDto> pollDesktopLogin(String state) {
