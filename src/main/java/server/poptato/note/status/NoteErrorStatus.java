@@ -10,7 +10,9 @@ import server.poptato.global.response.dto.ErrorReasonDto;
 @RequiredArgsConstructor
 public enum NoteErrorStatus implements BaseErrorCode {
 
-    _EMPTY_TITLE_AND_CONTENT(HttpStatus.BAD_REQUEST, "NOTE-001", "제목과 내용을 모두 비울 수 없습니다.");
+    _EMPTY_TITLE_AND_CONTENT(HttpStatus.BAD_REQUEST, "NOTE-001", "제목과 내용을 모두 비울 수 없습니다."),
+    _NOT_FOUND_NOTE(HttpStatus.NOT_FOUND, "NOTE-002", "요청한 노트를 찾을 수 없습니다.");
+
 
     private final HttpStatus httpStatus;
     private final String code;
