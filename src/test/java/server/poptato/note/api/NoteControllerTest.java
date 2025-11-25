@@ -18,6 +18,7 @@ import server.poptato.configuration.ControllerTestConfig;
 import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
+import server.poptato.note.application.response.NoteResponseDto;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -86,6 +88,53 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                                                 fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("생성된 노트 ID")
                                         )
+                                        .build()
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("[SCN-API-NOTE-READ] 노트를 조회한다.")
+    public void getNote() throws Exception {
+        // given
+        NoteResponseDto response = new NoteResponseDto(1L, "title", "content");
+
+        Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
+        Mockito.when(noteService.getNote(anyLong(),anyLong())).thenReturn(response);
+
+        // when
+        ResultActions resultActions = this.mockMvc.perform(
+                RestDocumentationRequestBuilders.get("/notes/{noteId}", 1L)
+                        .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-200"))
+                .andExpect(jsonPath("$.message").value("요청 응답에 성공했습니다."))
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("notes/get-note",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(
+                                ResourceSnippetParameters.builder()
+                                        .tag("Note API")
+                                        .description("노트를 조회한다.")
+                                        .pathParameters(
+                                                parameterWithName("noteId").description("조회할 노트 ID")
+                                        )
+                                        .responseFields(
+                                                fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
+                                                fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                                                fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                                                fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
+                                                fieldWithPath("result.title").type(JsonFieldType.STRING).description("노트 제목"),
+                                                fieldWithPath("result.content").type(JsonFieldType.STRING).description("노트 내용")
+                                        )
+                                        .responseSchema(Schema.schema("NoteResponse"))
                                         .build()
                         )
                 ));
