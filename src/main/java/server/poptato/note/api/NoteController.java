@@ -27,5 +27,4 @@ public class NoteController {
         NoteCreateResponseDto responseDto = noteService.createNote(jwtService.extractUserIdFromToken(authorizationHeader), noteCreateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._CREATED, responseDto);
     }
-
 }
