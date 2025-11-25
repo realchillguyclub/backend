@@ -19,6 +19,14 @@ public class NoteController {
     private final NoteService noteService;
     private final JwtService jwtService;
 
+    /**
+     * 노트 생성 API.
+     * 사용자가 노트를 생성합니다.
+     *
+     * @param authorizationHeader 요청 헤더의 Authorization (Bearer 토큰)
+     * @param noteCreateRequestDto 노트 생성 요청 데이터
+     * @return 성공 여부를 나타내는 응답
+     */
     @PostMapping
     public ResponseEntity<ApiResponse<NoteCreateResponseDto>> createNote(
             @RequestHeader("Authorization") String authorizationHeader,
