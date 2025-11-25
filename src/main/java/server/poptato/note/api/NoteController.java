@@ -10,6 +10,7 @@ import server.poptato.global.response.status.SuccessStatus;
 import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
+import server.poptato.note.application.response.NoteResponseDto;
 
 @RestController
 @RequestMapping("/notes")
@@ -34,5 +35,22 @@ public class NoteController {
     ) {
         NoteCreateResponseDto responseDto = noteService.createNote(jwtService.extractUserIdFromToken(authorizationHeader), noteCreateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._CREATED, responseDto);
+    }
+
+    /**
+     * 노트 조회 API.
+     * 사용자가 노트를 조회합니다.
+     *
+     * @param authorizationHeader 요청 헤더의 Authorization (Bearer 토큰)
+     * @param noteId 노트 ID
+     * @return 성공 여부를 나타내는 응답
+     */
+    @GetMapping("/{noteId}")
+    public ResponseEntity<ApiResponse<NoteResponseDto>> getNote(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable Long noteId
+    ) {
+        NoteResponseDto responseDto = noteService.getNote(jwtService.extractUserIdFromToken(authorizationHeader), noteId);
+        return ApiResponse.onSuccess(SuccessStatus._OK, responseDto);
     }
 }
