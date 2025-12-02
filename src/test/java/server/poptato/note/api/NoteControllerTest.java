@@ -19,6 +19,11 @@ import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
+import server.poptato.note.application.response.NoteSummaryListResponseDto;
+import server.poptato.note.domain.summary.NoteSummary;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
 import static org.mockito.ArgumentMatchers.any;
@@ -94,10 +99,65 @@ public class NoteControllerTest extends ControllerTestConfig {
     }
 
     @Test
+    @DisplayName("[SCN-API-NOTE-LIST] 노트 목록을 조회한다.")
+    void getNoteList() throws Exception {
+        // given
+        LocalDateTime now = LocalDateTime.now();
+        List<NoteSummary> summaries = List.of(
+                new NoteSummary(1L, "title1", "content1", now),
+                new NoteSummary(2L, "title2", "content2", now)
+        );
+        NoteSummaryListResponseDto response = NoteSummaryListResponseDto.from(summaries);
+
+        Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
+        Mockito.when(noteService.getNoteList(1L)).thenReturn(response);
+
+        // when
+        ResultActions resultActions = this.mockMvc.perform(
+                RestDocumentationRequestBuilders.get("/notes")
+                        .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-200"))
+                .andExpect(jsonPath("$.message").value("요청 응답에 성공했습니다."))
+                .andExpect(jsonPath("$.result.notes[0].noteId").value(1L))
+                .andExpect(jsonPath("$.result.notes[0].title").value("title1"))
+                .andExpect(jsonPath("$.result.notes[0].content").value("content1"))
+                .andExpect(jsonPath("$.result.notes[0].modifyDate").exists())
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("notes/get-note-list",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(
+                                ResourceSnippetParameters.builder()
+                                        .tag("Note API")
+                                        .description("노트 목록을 조회한다.")
+                                        .responseFields(
+                                                fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
+                                                fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                                                fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                                                fieldWithPath("result.notes").type(JsonFieldType.ARRAY).description("노트 목록"),
+                                                fieldWithPath("result.notes[].noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
+                                                fieldWithPath("result.notes[].title").type(JsonFieldType.STRING).description("노트 제목(프리뷰)"),
+                                                fieldWithPath("result.notes[].content").type(JsonFieldType.STRING).description("노트 내용(프리뷰)"),
+                                                fieldWithPath("result.notes[].modifyDate").type(JsonFieldType.STRING).description("최근 변경 시각")
+                                        )
+                                        .responseSchema(Schema.schema("NoteSummaryListResponse"))
+                                        .build()
+                        )
+                ));
+    }
+
+    @Test
     @DisplayName("[SCN-API-NOTE-READ] 노트를 조회한다.")
     public void getNote() throws Exception {
         // given
-        NoteResponseDto response = new NoteResponseDto(1L, "title", "content");
+        NoteResponseDto response = new NoteResponseDto(1L, "title", "content", LocalDateTime.now());
 
         Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
         Mockito.when(noteService.getNote(anyLong(),anyLong())).thenReturn(response);
@@ -132,7 +192,8 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                                                 fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
                                                 fieldWithPath("result.title").type(JsonFieldType.STRING).description("노트 제목"),
-                                                fieldWithPath("result.content").type(JsonFieldType.STRING).description("노트 내용")
+                                                fieldWithPath("result.content").type(JsonFieldType.STRING).description("노트 내용"),
+                                                fieldWithPath("result.updatedAt").type(JsonFieldType.STRING).description("최근 변경 시각")
                                         )
                                         .responseSchema(Schema.schema("NoteResponse"))
                                         .build()
