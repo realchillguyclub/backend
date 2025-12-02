@@ -16,7 +16,7 @@ public class NoteValidator {
             isContentBlank = true;
         }
 
-        if (isTitleBlank && isContentBlank) {
+        if (isTitleBlank || isContentBlank) {
             throw new CustomException(NoteErrorStatus._EMPTY_TITLE_AND_CONTENT);
         }
     }
