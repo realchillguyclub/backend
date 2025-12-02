@@ -193,7 +193,7 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
                                                 fieldWithPath("result.title").type(JsonFieldType.STRING).description("노트 제목"),
                                                 fieldWithPath("result.content").type(JsonFieldType.STRING).description("노트 내용"),
-                                                fieldWithPath("result.updatedAt").type(JsonFieldType.STRING).description("최근 변경 시각")
+                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 변경 시각")
                                         )
                                         .responseSchema(Schema.schema("NoteResponse"))
                                         .build()
