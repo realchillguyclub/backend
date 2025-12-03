@@ -268,4 +268,48 @@ public class NoteControllerTest extends ControllerTestConfig {
                         )
                 ));
     }
+
+    @Test
+    @DisplayName("[SCN-API-NOTE-DELETE] 노트를 삭제한다.")
+    void deleteNote() throws Exception {
+        // given
+        Long noteId = 1L;
+
+        Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
+        Mockito.doNothing().when(noteService).deleteNote(anyLong(), anyLong());
+
+        // when
+        ResultActions resultActions = this.mockMvc.perform(
+                RestDocumentationRequestBuilders.delete("/notes/{noteId}", noteId)
+                        .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-204"))
+                .andExpect(jsonPath("$.message").value("콘텐츠가 없습니다."))
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("notes/delete-note",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(
+                                ResourceSnippetParameters.builder()
+                                        .tag("Note API")
+                                        .description("노트를 삭제한다.")
+                                        .pathParameters(
+                                                parameterWithName("noteId").description("삭제할 노트 ID")
+                                        )
+                                        .responseFields(
+                                                fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
+                                                fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                                                fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지")
+                                        )
+                                        .responseSchema(Schema.schema("BaseResponse"))
+                                        .build()
+                        )
+                ));
+    }
 }
