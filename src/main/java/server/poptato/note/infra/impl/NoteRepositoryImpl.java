@@ -31,7 +31,7 @@ public class NoteRepositoryImpl implements NoteRepository {
     public List<NoteSummary> findSummariesByUserId(Long userId) {
         List<NoteListItemProjection> projections = jpaNoteRepository.findNoteListByUserId(userId, 20, 30);
         return projections.stream()
-                .map((p) -> new NoteSummary(p.getId(), p.getTitle(), p.getPreviewContent(), p.getModifyDate()))
+                .map((p) -> new NoteSummary(p.getId(), p.getPreviewTitle(), p.getPreviewContent(), p.getModifyDate()))
                 .toList();
     }
 
