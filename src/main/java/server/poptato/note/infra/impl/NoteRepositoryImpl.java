@@ -18,11 +18,6 @@ public class NoteRepositoryImpl implements NoteRepository {
     private final JpaNoteRepository jpaNoteRepository;
 
     @Override
-    public Optional<Note> findByIdAndUserId(Long noteId, Long userId) {
-        return jpaNoteRepository.findByIdAndUserId(noteId, userId);
-    }
-
-    @Override
     public Note save(Note note) {
         return jpaNoteRepository.save(note);
     }
@@ -35,4 +30,13 @@ public class NoteRepositoryImpl implements NoteRepository {
                 .toList();
     }
 
+    @Override
+    public Optional<Note> findByIdAndUserId(Long noteId, Long userId) {
+        return jpaNoteRepository.findByIdAndUserId(noteId, userId);
+    }
+
+    @Override
+    public void delete(Note note) {
+        jpaNoteRepository.delete(note);
+    }
 }

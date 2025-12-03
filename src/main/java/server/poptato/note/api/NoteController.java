@@ -91,4 +91,21 @@ public class NoteController {
         NoteUpdateResponseDto responseDto = noteService.updateNote(jwtService.extractUserIdFromToken(authorizationHeader), noteId, noteUpdateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._OK, responseDto);
     }
+
+    /**
+     * 노트 삭제 API
+     * 사용자가 노트를 삭제합니다.
+     *
+     * @param authorizationHeader 요청 헤더의 Authorization (Bearer 토큰)
+     * @param noteId 노트 ID
+     * @return 성공 여부를 나타내는 응답
+     */
+    @DeleteMapping("/{noteId}")
+    public ResponseEntity<ApiResponse<NoteUpdateResponseDto>> deleteNote(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable Long noteId
+    ) {
+        noteService.deleteNote(jwtService.extractUserIdFromToken(authorizationHeader), noteId);
+        return ApiResponse.onSuccess(SuccessStatus._NO_CONTENT);
+    }
 }

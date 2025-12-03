@@ -103,4 +103,19 @@ public class NoteService {
 
         return new NoteUpdateResponseDto(note.getId(), note.getModifyDate());
     }
+
+    /**
+     * 노트를 삭제합니다.
+     * @param userId 사용자 ID
+     * @param noteId 노트 ID
+     * @throws CustomException 노트가 존재하지 않을 경우
+     */
+    @Transactional
+    public void deleteNote(Long userId, Long noteId) {
+        userValidator.checkIsExistUser(userId);
+        Note note = noteRepository.findByIdAndUserId(noteId, userId)
+                .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
+
+        noteRepository.delete(note);
+    }
 }

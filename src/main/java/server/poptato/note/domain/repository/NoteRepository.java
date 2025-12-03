@@ -8,9 +8,11 @@ import java.util.Optional;
 
 public interface NoteRepository {
 
+    Note save(Note note);
+
     List<NoteSummary> findSummariesByUserId(Long userId);
 
     Optional<Note> findByIdAndUserId(Long noteId, Long userId);
 
-    Note save(Note note);
+    void delete(Note note);
 }
