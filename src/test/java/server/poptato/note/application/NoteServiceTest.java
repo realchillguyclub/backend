@@ -6,9 +6,11 @@ import org.mockito.Mock;
 import server.poptato.configuration.ServiceTestConfig;
 import server.poptato.global.exception.CustomException;
 import server.poptato.note.api.request.NoteCreateRequestDto;
+import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
 import server.poptato.note.application.response.NoteSummaryListResponseDto;
+import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.entity.Note;
 import server.poptato.note.domain.repository.NoteRepository;
 import server.poptato.note.domain.summary.NoteSummary;
@@ -64,7 +66,6 @@ public class NoteServiceTest extends ServiceTestConfig {
     @TestMethodOrder(MethodOrderer.DisplayName.class)
     @DisplayName("[SCN-SVC-NOTE-002] 노트를 조회한다")
     class ReadNote {
-
 
         @Test
         @DisplayName("[TC-READ-001] 노트를 정상적으로 조회한다")
@@ -132,5 +133,92 @@ public class NoteServiceTest extends ServiceTestConfig {
         assertThat(result.notes().get(0).title()).isEqualTo("title1");
         assertThat(result.notes().get(0).content()).isEqualTo("content1");
         assertThat(result.notes().get(0).modifyDate()).isEqualTo(now);
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-NOTE-004] 노트를 수정한다")
+    class UpdateNote {
+
+        @Test
+        @DisplayName("[TC-UPDATE-001] 제목/내용이 변경된 경우 노트를 수정한다")
+        void updateNote_whenChanged_updatesNote() {
+            // given
+            Long userId = 1L;
+            Long noteId = 10L;
+            LocalDateTime modifyDate = LocalDateTime.now();
+
+            NoteUpdateRequestDto requestDto = new NoteUpdateRequestDto("new title", "new content");
+
+            Note note = mock(Note.class);
+
+            given(noteRepository.findByIdAndUserId(noteId, userId)).willReturn(Optional.of(note));
+
+            given(note.getId()).willReturn(noteId);
+            given(note.getModifyDate()).willReturn(modifyDate);
+
+            // when
+            NoteUpdateResponseDto response = noteService.updateNote(userId, noteId, requestDto);
+
+            // then
+            verify(userValidator).checkIsExistUser(userId);
+            verify(noteRepository).findByIdAndUserId(noteId, userId);
+            verify(note).update(requestDto.title(), requestDto.content());
+
+            assertThat(response.noteId()).isEqualTo(noteId);
+            assertThat(response.modifyDate()).isEqualTo(modifyDate);
+        }
+
+        @Test
+        @DisplayName("[TC-UPDATE-002] 제목/내용이 동일하면 수정하지 않는다")
+        void updateNote_whenNotChanged_skipUpdate() {
+            // given
+            Long userId = 1L;
+            Long noteId = 10L;
+            LocalDateTime modifyDate = LocalDateTime.now();
+
+            NoteUpdateRequestDto requestDto = new NoteUpdateRequestDto("same title", "same content");
+
+            Note note = mock(Note.class);
+
+            given(noteRepository.findByIdAndUserId(noteId, userId)).willReturn(Optional.of(note));
+
+            given(note.getTitle()).willReturn("same title");
+            given(note.getContent()).willReturn("same content");
+            given(note.getId()).willReturn(noteId);
+            given(note.getModifyDate()).willReturn(modifyDate);
+
+            // when
+            NoteUpdateResponseDto response = noteService.updateNote(userId, noteId, requestDto);
+
+            // then
+            verify(userValidator).checkIsExistUser(userId);
+            verify(noteRepository).findByIdAndUserId(noteId, userId);
+            verify(note, never()).update(anyString(), anyString());
+
+            assertThat(response.noteId()).isEqualTo(noteId);
+            assertThat(response.modifyDate()).isEqualTo(modifyDate);
+        }
+
+        @Test
+        @DisplayName("[TC-UPDATE-EXCEPTION-001] 노트가 존재하지 않으면 예외를 발생시킨다")
+        void updateNote_whenNotFound_throwsException() {
+            // given
+            Long userId = 1L;
+            Long noteId = 10L;
+
+            NoteUpdateRequestDto requestDto = new NoteUpdateRequestDto("title", "content");
+
+            given(noteRepository.findByIdAndUserId(noteId, userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> noteService.updateNote(userId, noteId, requestDto))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", NoteErrorStatus._NOT_FOUND_NOTE);
+
+            verify(userValidator).checkIsExistUser(userId);
+            verify(noteRepository).findByIdAndUserId(noteId, userId);
+        }
+
     }
 }
