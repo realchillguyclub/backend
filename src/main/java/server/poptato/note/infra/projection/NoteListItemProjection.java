@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public interface NoteListItemProjection {
     Long getId();
-    String getTitle();
+    String getPreviewTitle();
     String getPreviewContent();
     LocalDateTime getModifyDate();
 }
