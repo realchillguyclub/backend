@@ -35,4 +35,9 @@ public class Note extends BaseEntity {
         this.content = content;
         this.userId = userId;
     }
+
+    public void update(String title, String content) {
+        this.title = title;
+        this.content = content;
+    }
 }
