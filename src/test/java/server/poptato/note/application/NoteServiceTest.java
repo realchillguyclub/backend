@@ -219,6 +219,49 @@ public class NoteServiceTest extends ServiceTestConfig {
             verify(userValidator).checkIsExistUser(userId);
             verify(noteRepository).findByIdAndUserId(noteId, userId);
         }
+    }
 
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-NOTE-005] 노트를 삭제한다")
+    class DeleteNote {
+
+        @Test
+        @DisplayName("[TC-DELETE-001] 노트를 정상적으로 삭제한다")
+        void deleteNote_success() {
+            // given
+            Long userId = 1L;
+            Long noteId = 10L;
+
+            Note note = mock(Note.class);
+            given(noteRepository.findByIdAndUserId(noteId, userId)).willReturn(Optional.of(note));
+
+            // when
+            noteService.deleteNote(userId, noteId);
+
+            // then
+            verify(userValidator).checkIsExistUser(userId);
+            verify(noteRepository).findByIdAndUserId(noteId, userId);
+            verify(noteRepository).delete(note);
+        }
+
+        @Test
+        @DisplayName("[SCN-DELETE-EXCEPTION-001] 노트가 존재하지 않으면 예외를 던진다")
+        void deleteNote_notFound() {
+            // given
+            Long userId = 1L;
+            Long noteId = 10L;
+
+            given(noteRepository.findByIdAndUserId(noteId, userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> noteService.deleteNote(userId, noteId))
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", NoteErrorStatus._NOT_FOUND_NOTE);
+
+            verify(userValidator).checkIsExistUser(userId);
+            verify(noteRepository).findByIdAndUserId(noteId, userId);
+            verify(noteRepository, never()).delete(any());
+        }
     }
 }
