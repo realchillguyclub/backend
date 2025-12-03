@@ -16,10 +16,12 @@ import org.springframework.test.web.servlet.ResultActions;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.configuration.ControllerTestConfig;
 import server.poptato.note.api.request.NoteCreateRequestDto;
+import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
 import server.poptato.note.application.response.NoteSummaryListResponseDto;
+import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.summary.NoteSummary;
 
 import java.time.LocalDateTime;
@@ -196,6 +198,72 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 변경 시각")
                                         )
                                         .responseSchema(Schema.schema("NoteResponse"))
+                                        .build()
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("[SCN-API-NOTE-UPDATE] 노트를 수정한다.")
+    void update_note() throws Exception {
+        // given
+        Long noteId = 1L;
+
+        NoteUpdateRequestDto requestDto = new NoteUpdateRequestDto(
+                "updated title",
+                "updated content"
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+        NoteUpdateResponseDto responseDto = new NoteUpdateResponseDto(noteId, now);
+
+        Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
+        Mockito.when(noteService.updateNote(anyLong(), anyLong(), any(NoteUpdateRequestDto.class)))
+                .thenReturn(responseDto);
+
+        String requestContent = objectMapper.writeValueAsString(requestDto);
+
+        // when
+        ResultActions resultActions = this.mockMvc.perform(
+                RestDocumentationRequestBuilders.put("/notes/{noteId}", noteId)
+                        .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
+                        .content(requestContent)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-200"))
+                .andExpect(jsonPath("$.message").value("요청 응답에 성공했습니다."))
+                .andExpect(jsonPath("$.result.noteId").value(noteId))
+                .andExpect(jsonPath("$.result.modifyDate").exists())
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("notes/update-note",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(
+                                ResourceSnippetParameters.builder()
+                                        .tag("Note API")
+                                        .description("노트를 수정한다.")
+                                        .requestSchema(Schema.schema("NoteUpdateRequest"))
+                                        .responseSchema(Schema.schema("NoteUpdateResponse"))
+                                        .pathParameters(
+                                                parameterWithName("noteId").description("수정할 노트 ID")
+                                        )
+                                        .requestFields(
+                                                fieldWithPath("title").type(JsonFieldType.STRING).description("수정할 노트 제목"),
+                                                fieldWithPath("content").type(JsonFieldType.STRING).description("수정할 노트 내용")
+                                        )
+                                        .responseFields(
+                                                fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
+                                                fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                                                fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                                                fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
+                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 수정 시각")
+                                        )
                                         .build()
                         )
                 ));
