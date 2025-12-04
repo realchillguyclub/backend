@@ -116,7 +116,7 @@ class AuthServiceLockTest extends RedisTestConfig {
         when(savedUser.getSocialType()).thenReturn(SocialType.KAKAO);
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(userRepository.count()).thenReturn(1L);
-        when(jwtService.generateTokenPair(anyString())).thenReturn(tokenPair);
+        when(jwtService.generateTokenPair(anyString(), any())).thenReturn(tokenPair);
 
         // when
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);

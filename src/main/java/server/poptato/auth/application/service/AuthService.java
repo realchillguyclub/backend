@@ -62,11 +62,11 @@ public class AuthService {
                     long userCount = userRepository.count();
                     eventPublisher.publishEvent(CreateUserEvent.from(userCount, newUser, request.mobileType().toString()));
 
-                    return createLoginResponse(newUser.getId(), true);
+                    return createLoginResponse(newUser.getId(), request.mobileType(), true);
                 }
                 updateImage(findUser.get(), userInfo);
                 saveFcmToken(findUser.get().getId(), request);
-                return createLoginResponse(findUser.get().getId(), false);
+                return createLoginResponse(findUser.get().getId(), request.mobileType(), false);
             });
         } catch (CustomException e) {
             if (e.getErrorCode().equals(LockErrorStatus._LOCK_ACQUISITION_FAILED)) {
@@ -156,8 +156,8 @@ public class AuthService {
      * @param isNewUser 신규 유저 여부
      * @return 로그인 응답 데이터
      */
-    private LoginResponseDto createLoginResponse(Long userId, boolean isNewUser) {
-        TokenPair tokenPair = jwtService.generateTokenPair(String.valueOf(userId));
+    private LoginResponseDto createLoginResponse(Long userId, MobileType mobileType, boolean isNewUser) {
+        TokenPair tokenPair = jwtService.generateTokenPair(String.valueOf(userId), mobileType);
         return LoginResponseDto.of(tokenPair.accessToken(), tokenPair.refreshToken(), isNewUser, userId);
     }
 
@@ -178,7 +178,7 @@ public class AuthService {
         } else {
             mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
         }
-        jwtService.deleteRefreshToken(String.valueOf(userId));
+        jwtService.deleteRefreshToken(String.valueOf(userId), fcmTokenRequestDto.mobileType());
     }
 
     /**
@@ -190,7 +190,7 @@ public class AuthService {
      */
     @Transactional
     public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto) {
-        final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken());
+        final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken(), reissueTokenRequestDto.mobileType());
         userValidator.checkIsExistUser(Long.parseLong(userId));
 
         if (reissueTokenRequestDto.mobileType() == MobileType.DESKTOP) {
@@ -199,8 +199,8 @@ public class AuthService {
             refreshMobile(reissueTokenRequestDto.clientId());
         }
 
-        final TokenPair tokenPair = jwtService.generateTokenPair(userId);
-        jwtService.saveRefreshToken(userId, tokenPair.refreshToken());
+        final TokenPair tokenPair = jwtService.generateTokenPair(userId, reissueTokenRequestDto.mobileType());
+        jwtService.saveRefreshToken(userId, reissueTokenRequestDto.mobileType(), tokenPair.refreshToken());
 
         return tokenPair;
     }
@@ -212,11 +212,11 @@ public class AuthService {
      * @param refreshToken 검증할 리프레시 토큰
      * @throws RuntimeException 토큰이 유효하지 않을 경우 예외 발생
      */
-    private String extractUserIdAfterVerifyRefreshToken(String refreshToken) {
+    private String extractUserIdAfterVerifyRefreshToken(String refreshToken, MobileType mobileType) {
         try {
             jwtService.verifyRefreshToken(refreshToken);
             final String userId = jwtService.getUserIdInToken(refreshToken);
-            jwtService.compareRefreshToken(userId, refreshToken);
+            jwtService.compareRefreshToken(userId, mobileType, refreshToken);
 
             return userId;
         } catch (Exception e) {

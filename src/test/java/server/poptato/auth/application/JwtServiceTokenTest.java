@@ -35,7 +35,7 @@ class JwtServiceTokenTest extends ServiceTestConfig {
     private static String validAccess(String userId, String base64Secret) {
         Date now = new Date();
         Date exp = new Date(now.getTime()
-                + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE * JwtService.MINUTE_IN_MILLISECONDS);
+                + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis());
         Claims c = Jwts.claims()
                 .setSubject("ACCESS_TOKEN")
                 .setIssuedAt(now)
@@ -68,7 +68,7 @@ class JwtServiceTokenTest extends ServiceTestConfig {
     private static String forgedToken(String subject, String userId, String otherBase64Secret) {
         Date now = new Date();
         Date exp = new Date(now.getTime()
-                + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE * JwtService.MINUTE_IN_MILLISECONDS);
+                + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis());
         Claims c = Jwts.claims()
                 .setSubject(subject)
                 .setIssuedAt(now)

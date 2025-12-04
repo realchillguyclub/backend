@@ -1,4 +1,4 @@
-package server.poptato.infra.oauth.kakao;
+package server.poptato.infra.oauth.kakao.response;
 
 
 public record KakaoUserResponse(

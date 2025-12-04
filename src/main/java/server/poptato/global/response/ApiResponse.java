@@ -3,6 +3,8 @@ package server.poptato.global.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import server.poptato.global.response.code.BaseCode;
 import server.poptato.global.response.code.BaseErrorCode;
@@ -35,4 +37,19 @@ public class ApiResponse<T> {
         ApiResponse<T> response = new ApiResponse<>(false, code.getReasonHttpStatus().getCode(), message, null);
         return ResponseEntity.status(code.getReasonHttpStatus().getHttpStatus()).body(response);
     }
+
+    public static ResponseEntity<String> htmlOnSuccess(String html) {
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
+                .body(html);
+    }
+
+    public static ResponseEntity<String> htmlOnFailure(BaseErrorCode code, String html) {
+        return ResponseEntity
+                .status(code.getReasonHttpStatus().getHttpStatus())
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
+                .body(html);
+    }
+
 }

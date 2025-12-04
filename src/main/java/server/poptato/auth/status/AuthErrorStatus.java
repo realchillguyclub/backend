@@ -25,6 +25,8 @@ public enum AuthErrorStatus implements BaseErrorCode {
     _EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN_IN_REDIS(HttpStatus.UNAUTHORIZED, "AUTH-014", "레디스에 있는 리프레쉬 토큰이 없거나 만료되었습니다."),
     _REDIS_UNAVAILABLE(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-015", "레디스 서버에 접근할 수 없습니다."),
     _SIGNUP_IN_PROGRESS(HttpStatus.CONFLICT, "AUTH-016", "이미 로그인이 진행 중입니다."),
+    _OAUTH_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "AUTH-017", "사용자가 소셜 로그인 동의를 거부했습니다."),
+    _INVALID_STATE(HttpStatus.BAD_REQUEST, "AUTH-018", "유효하지 않은 OAuth state 값입니다.")
     ;
 
     private final HttpStatus httpStatus;
