@@ -59,7 +59,7 @@ public class UserService {
         mobileRepository.deleteByUserId(userId);
         userRepository.delete(user);
         categoryRepository.deleteByUserId(userId);
-        jwtService.deleteRefreshToken(String.valueOf(userId));
+        jwtService.deleteAllRefreshTokens(String.valueOf(userId));
     }
 
     private void saveDeleteReasons(Long userId, List<Reason> reasons, String userInputReason) {

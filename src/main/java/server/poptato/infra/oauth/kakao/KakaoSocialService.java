@@ -6,12 +6,15 @@ import org.springframework.stereotype.Service;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.infra.oauth.SocialService;
 import server.poptato.infra.oauth.SocialUserInfo;
+import server.poptato.infra.oauth.kakao.response.KakaoTokenResponse;
+import server.poptato.infra.oauth.kakao.response.KakaoUserResponse;
 
 @Service
 @RequiredArgsConstructor
 public class KakaoSocialService extends SocialService {
     private static final String Bearer = "Bearer ";
     private final KakaoApiClient kakaoApiClient;
+    private final KakaoAuthClient kakaoAuthClient;
 
     @Override
     public SocialUserInfo getUserData(LoginRequestDto request) {
@@ -23,5 +26,18 @@ public class KakaoSocialService extends SocialService {
                 userResponse.kakao_account().email(),
                 userResponse.kakao_account().profile().profile_image_url()
         );
+    }
+
+    public String getKakaoUserAccessToken(
+            String clientId, String redirectUri, String code, String codeVerifier) {
+        KakaoTokenResponse tokenResponse = kakaoAuthClient.exchangeToken(
+                "authorization_code",
+                clientId,
+                redirectUri,
+                code,
+                codeVerifier
+        );
+
+        return tokenResponse.accessToken();
     }
 }

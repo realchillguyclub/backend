@@ -1,5 +1,4 @@
-# 경량 Alpine 이미지를 기반으로 애플리케이션 실행
-FROM openjdk:17-jdk-alpine
+FROM amazoncorretto:17-alpine-jdk
 
 WORKDIR /app
 

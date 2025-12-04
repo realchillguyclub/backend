@@ -137,7 +137,7 @@ class UserServiceTest extends ServiceTestConfig {
             then(deleteReasonRepository).should(times(reasons.size() + 1)).save(any());
             then(userRepository).should().delete(found);
             then(categoryRepository).should().deleteByUserId(userId);
-            then(jwtService).should().deleteRefreshToken(String.valueOf(userId));
+            then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
 
             ArgumentCaptor<DeleteUserEvent> captor = ArgumentCaptor.forClass(DeleteUserEvent.class);
             then(eventPublisher).should().publishEvent(captor.capture());
@@ -219,7 +219,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).should(times(2)).save(any());
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteRefreshToken(String.valueOf(userId));
+                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
@@ -233,7 +233,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).should(times(1)).save(any());
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteRefreshToken(String.valueOf(userId));
+                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
@@ -247,7 +247,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).shouldHaveNoInteractions();
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteRefreshToken(String.valueOf(userId));
+                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
         }

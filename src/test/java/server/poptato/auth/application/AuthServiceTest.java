@@ -98,7 +98,8 @@ class AuthServiceTest extends ServiceTestConfig {
             //given
             Long userId = 1L;
             String clientId = "client-id";
-            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, MobileType.ANDROID, clientId, "tester");
+            MobileType mobileType = MobileType.ANDROID;
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, clientId, "tester");
             SocialUserInfo userInfo = socialUserInfo();
 
             when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
@@ -124,7 +125,7 @@ class AuthServiceTest extends ServiceTestConfig {
             when(mobileRepository.findByClientId(requestDto.clientId())).thenReturn(Optional.empty());
             doNothing().when(eventPublisher).publishEvent(any(CreateUserEvent.class));
             TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
-            when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(tokenPair);
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(tokenPair);
 
             // when
             LoginResponseDto responseDto = authService.login(requestDto);
@@ -149,7 +150,8 @@ class AuthServiceTest extends ServiceTestConfig {
         void login_새로운_유저_로그인_성공_DESKTOP() {
             //given
             Long userId = 1L;
-            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, MobileType.DESKTOP, null, "tester");
+            MobileType mobileType = MobileType.DESKTOP;
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, null, "tester");
             SocialUserInfo userInfo = socialUserInfo();
 
             when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
@@ -175,7 +177,7 @@ class AuthServiceTest extends ServiceTestConfig {
             when(mobileRepository.findByUserIdAndType(userId, requestDto.mobileType())).thenReturn(Optional.empty());
             doNothing().when(eventPublisher).publishEvent(any(CreateUserEvent.class));
             TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
-            when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(tokenPair);
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(tokenPair);
 
             // when
             LoginResponseDto responseDto = authService.login(requestDto);
@@ -223,8 +225,9 @@ class AuthServiceTest extends ServiceTestConfig {
         @DisplayName("[TC-LOGIN-004] 기존 유저 소셜 로그인 시, 유저의 정보(이미지url, fcm토큰)가 업데이트 되고 응답에 isNew=false가 포함된다")
         void login_존재하는_유저_로그인_성공() {
             //given
+            MobileType mobileType = MobileType.ANDROID;
             String clientId = "client-id";
-            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, MobileType.ANDROID, clientId, "tester");
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, clientId, "tester");
             SocialUserInfo userInfo = socialUserInfo();
             Long userId = 1L;
 
@@ -242,7 +245,7 @@ class AuthServiceTest extends ServiceTestConfig {
 
             when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.of(existingUser));
             when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.of(mock(Mobile.class)));
-            when(jwtService.generateTokenPair(String.valueOf(userId)))
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType))
                     .thenReturn(new TokenPair("access-token", "refresh-token"));
 
             // when
@@ -255,7 +258,7 @@ class AuthServiceTest extends ServiceTestConfig {
             assertThat(response.refreshToken()).isEqualTo("refresh-token");
 
             verify(userRepository).findBySocialId(userInfo.socialId());
-            verify(jwtService).generateTokenPair(String.valueOf(userId));
+            verify(jwtService).generateTokenPair(String.valueOf(userId), mobileType);
             verify(mobileRepository).findByClientId(clientId);
             verify(userRepository, never()).save(existingUser);
         }
@@ -296,7 +299,7 @@ class AuthServiceTest extends ServiceTestConfig {
         } else {
             doNothing().when(mobileRepository).deleteByClientId(requestDto.clientId());
         }
-        doNothing().when(jwtService).deleteRefreshToken(String.valueOf(userId));
+        doNothing().when(jwtService).deleteRefreshToken(String.valueOf(userId), mobileType);
 
         //when
         authService.logout(userId, requestDto);
@@ -308,7 +311,7 @@ class AuthServiceTest extends ServiceTestConfig {
         } else {
             verify(mobileRepository).deleteByClientId(requestDto.clientId());
         }
-        verify(jwtService).deleteRefreshToken(String.valueOf(userId));
+        verify(jwtService).deleteRefreshToken(String.valueOf(userId), mobileType);
     }
 
     @Nested
@@ -322,21 +325,22 @@ class AuthServiceTest extends ServiceTestConfig {
             // given
             Long userId = 100L;
             String refreshToken = "refresh-old";
+            MobileType mobileType = MobileType.ANDROID;
             String clientId = "client-ok";
 
-            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, MobileType.ANDROID, clientId);
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
             doNothing().when(jwtService).verifyRefreshToken(refreshToken);
             when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
-            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), refreshToken);
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
             Mobile mobile = mock(Mobile.class);
             when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.of(mobile));
 
             TokenPair newPair = new TokenPair("access-new", "refresh-new");
-            when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(newPair);
-            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), "refresh-new");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(newPair);
+            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
 
             // when
             TokenPair result = authService.refresh(dto);
@@ -347,15 +351,15 @@ class AuthServiceTest extends ServiceTestConfig {
 
             verify(jwtService).verifyRefreshToken(refreshToken);
             verify(jwtService).getUserIdInToken(refreshToken);
-            verify(jwtService).compareRefreshToken(String.valueOf(userId), refreshToken);
+            verify(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
             verify(userValidator).checkIsExistUser(userId);
 
             verify(mobileRepository).findByClientId(clientId);
             verify(mobileRepository, never()).findByUserIdAndType(anyLong(), any());
 
             verify(mobile).updateModifiedDate();
-            verify(jwtService).generateTokenPair(String.valueOf(userId));
-            verify(jwtService).saveRefreshToken(String.valueOf(userId), "refresh-new");
+            verify(jwtService).generateTokenPair(String.valueOf(userId), mobileType);
+            verify(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
         }
 
         @Test
@@ -364,20 +368,21 @@ class AuthServiceTest extends ServiceTestConfig {
             // given
             Long userId = 200L;
             String refreshToken = "refresh-old";
+            MobileType mobileType = MobileType.DESKTOP;
             String clientId = "client-id";
-            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, MobileType.DESKTOP, clientId);
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
             doNothing().when(jwtService).verifyRefreshToken(refreshToken);
             when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
-            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), refreshToken);
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
             Mobile mobile = mock(Mobile.class);
             when(mobileRepository.findByUserIdAndType(userId, MobileType.DESKTOP)).thenReturn(Optional.of(mobile));
 
             TokenPair pair = new TokenPair("access-new", "refresh-new");
-            when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(pair);
-            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), "refresh-new");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(pair);
+            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
 
             // when
             TokenPair result = authService.refresh(dto);
@@ -393,12 +398,13 @@ class AuthServiceTest extends ServiceTestConfig {
             // given
             Long userId = 300L;
             String refreshToken = "refresh-token";
+            MobileType mobileType = MobileType.DESKTOP;
             String clientId = "client-id";
-            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, MobileType.DESKTOP, clientId);
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
             doNothing().when(jwtService).verifyRefreshToken(refreshToken);
             when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
-            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), refreshToken);
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
             when(mobileRepository.findByUserIdAndType(userId, MobileType.DESKTOP)).thenReturn(Optional.empty());
@@ -412,8 +418,8 @@ class AuthServiceTest extends ServiceTestConfig {
             verify(mobileRepository).findByUserIdAndType(userId, MobileType.DESKTOP);
             verify(mobileRepository, never()).findByClientId(anyString());
 
-            verify(jwtService, never()).generateTokenPair(anyString());
-            verify(jwtService, never()).saveRefreshToken(anyString(), anyString());
+            verify(jwtService, never()).generateTokenPair(anyString(), any());
+            verify(jwtService, never()).saveRefreshToken(anyString(), any(), anyString());
         }
     }
 }
