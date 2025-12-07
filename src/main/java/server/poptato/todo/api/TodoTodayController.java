@@ -8,8 +8,10 @@ import server.poptato.auth.application.service.JwtService;
 import server.poptato.global.response.ApiResponse;
 import server.poptato.global.response.status.SuccessStatus;
 import server.poptato.todo.api.request.EventCreateRequestDto;
+import server.poptato.todo.api.request.TodayTodoCreateRequestDto;
 import server.poptato.todo.application.TodoTodayService;
 import server.poptato.todo.application.response.TodayListResponseDto;
+import server.poptato.todo.application.response.TodayTodoCreateResponseDto;
 import server.poptato.user.domain.value.MobileType;
 
 import java.time.LocalDate;
@@ -50,6 +52,24 @@ public class TodoTodayController {
                 todayDate
         );
         return ApiResponse.onSuccess(SuccessStatus._OK, response);
+    }
+
+    /**
+     * 오늘 할일 생성 API.
+     *
+     * 사용자가 새로운 오늘 할 일 생성합니다.
+     *
+     * @param authorizationHeader 요청 헤더의 Authorization (Bearer 토큰)
+     * @param todayTodoCreateRequestDto 오늘 할 일 생성 요청 데이터
+     * @return 생성된 백로그의 ID 및 관련 정보
+     */
+    @PostMapping("/todays")
+    public ResponseEntity<ApiResponse<TodayTodoCreateResponseDto>> createTodayTodo(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @Validated @RequestBody TodayTodoCreateRequestDto todayTodoCreateRequestDto
+    ) {
+        TodayTodoCreateResponseDto response = todoTodayService.createTodayTodo(jwtService.extractUserIdFromToken(authorizationHeader), todayTodoCreateRequestDto);
+        return ApiResponse.onSuccess(SuccessStatus._CREATED, response);
     }
 
     /**
