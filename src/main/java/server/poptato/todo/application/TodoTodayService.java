@@ -5,8 +5,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import server.poptato.infra.firebase.application.FcmNotificationBatchService;
 import server.poptato.todo.api.request.EventCreateRequestDto;
+import server.poptato.todo.api.request.TodayTodoCreateRequestDto;
 import server.poptato.todo.application.response.TodayListResponseDto;
 import server.poptato.todo.application.response.TodayResponseDto;
+import server.poptato.todo.application.response.TodayTodoCreateResponseDto;
 import server.poptato.todo.domain.entity.Routine;
 import server.poptato.todo.domain.entity.Todo;
 import server.poptato.todo.domain.repository.RoutineRepository;
@@ -100,6 +102,29 @@ public class TodoTodayService {
         todays.addAll(completedTodos);
 
         return todays;
+    }
+
+    /**
+     * 오늘 할 일 생성 메서드.
+     * 사용자 ID와 요청 데이터를 기반으로 새로운 오늘 할 일을 생성합니다.
+     *
+     * @param userId 사용자 ID
+     * @param todayTodoCreateRequestDto 오늘 할 일 생성 요청 데이터
+     * @return 생성된 오늘 할 일의 정보
+     */
+    public TodayTodoCreateResponseDto createTodayTodo(Long userId, TodayTodoCreateRequestDto todayTodoCreateRequestDto) {
+        userValidator.checkIsExistUser(userId);
+        Integer maxTodayOrder = todoRepository.findMaxTodayOrderByUserIdOrZero(userId);
+        Todo newTodayTodo = Todo.createTodayTodo(
+                userId,
+                todayTodoCreateRequestDto.content(),
+                null,
+                false,
+                maxTodayOrder
+        );
+
+        todoRepository.save(newTodayTodo);
+        return TodayTodoCreateResponseDto.from(newTodayTodo);
     }
 
     /**
