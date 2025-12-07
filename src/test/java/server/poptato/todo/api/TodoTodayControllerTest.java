@@ -15,7 +15,6 @@ import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.configuration.ControllerTestConfig;
-import server.poptato.todo.api.request.BacklogCreateRequestDto;
 import server.poptato.todo.api.request.EventCreateRequestDto;
 import server.poptato.todo.api.request.TodayTodoCreateRequestDto;
 import server.poptato.todo.application.TodoTodayService;
@@ -133,7 +132,7 @@ public class TodoTodayControllerTest extends ControllerTestConfig {
 
     @Test
     @DisplayName("오늘에서 할 일을 생성한다.")
-    public void createTodayTodo() throws Exception {
+    void createTodayTodo() throws Exception {
         // given
         TodayTodoCreateRequestDto request = new TodayTodoCreateRequestDto("New Todo");
         TodayTodoCreateResponseDto response = new TodayTodoCreateResponseDto(1L);

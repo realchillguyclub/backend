@@ -1,27 +1,22 @@
 package server.poptato.todo.application;
 
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import server.poptato.configuration.ServiceTestConfig;
-import server.poptato.infra.firebase.application.FcmNotificationBatchService;
 import server.poptato.todo.api.request.TodayTodoCreateRequestDto;
 import server.poptato.todo.application.response.TodayTodoCreateResponseDto;
 import server.poptato.todo.domain.entity.Todo;
-import server.poptato.todo.domain.repository.RoutineRepository;
 import server.poptato.todo.domain.repository.TodoRepository;
-import server.poptato.user.domain.repository.UserRepository;
 import server.poptato.user.validator.UserValidator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
-public class TodoTodayServiceTest extends ServiceTestConfig {
+class TodoTodayServiceTest extends ServiceTestConfig {
 
     @Mock
     private TodoRepository todoRepository;
