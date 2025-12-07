@@ -79,6 +79,7 @@ public class TodoTodayServiceTest extends ServiceTestConfig {
         // then
         verify(userValidator).checkIsExistUser(userId);
         verify(todoRepository).findMaxTodayOrderByUserIdOrZero(userId);
+        verify(todoRepository).save(mockTodo);
 
         assertThat(response).isNotNull();
         assertThat(response.todoId()).isEqualTo(100L);
