@@ -3,7 +3,6 @@ package server.poptato.note.api;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.global.response.ApiResponse;
@@ -35,7 +34,7 @@ public class NoteController {
     @PostMapping
     public ResponseEntity<ApiResponse<NoteCreateResponseDto>> createNote(
             @RequestHeader("Authorization") String authorizationHeader,
-            @Validated @RequestBody NoteCreateRequestDto noteCreateRequestDto
+            @Valid @RequestBody NoteCreateRequestDto noteCreateRequestDto
     ) {
         NoteCreateResponseDto responseDto = noteService.createNote(jwtService.extractUserIdFromToken(authorizationHeader), noteCreateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._CREATED, responseDto);
@@ -87,7 +86,7 @@ public class NoteController {
             @RequestHeader("Authorization") String authorizationHeader,
             @PathVariable Long noteId,
             @Valid @RequestBody NoteUpdateRequestDto noteUpdateRequestDto
-            ) {
+    ) {
         NoteUpdateResponseDto responseDto = noteService.updateNote(jwtService.extractUserIdFromToken(authorizationHeader), noteId, noteUpdateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._OK, responseDto);
     }
