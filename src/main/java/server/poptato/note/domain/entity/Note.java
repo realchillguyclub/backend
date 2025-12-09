@@ -1,7 +1,6 @@
 package server.poptato.note.domain.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,8 +21,7 @@ public class Note extends BaseEntity {
     private String title;
 
     @Lob
-    @Column(name = "content")
-    @Size(max = 10000, message = "내용은 최대 10000자까지 입력 가능합니다.")
+    @Column(name = "content", columnDefinition = "TEXT", length = 10_000)
     private String content;
 
     @Column(name = "user_id", nullable = false)
