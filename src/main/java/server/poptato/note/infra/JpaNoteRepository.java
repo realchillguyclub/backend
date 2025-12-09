@@ -4,7 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import server.poptato.note.domain.entity.Note;
-import server.poptato.note.infra.projection.NoteListItemProjection;
+import server.poptato.note.infra.projection.NotePreviewProjection;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +22,7 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
         ORDER BY n.modify_date DESC
         """,
             nativeQuery = true)
-    List<NoteListItemProjection> findNoteListByUserId(
+    List<NotePreviewProjection> findNotePreviewsByUserId(
             @Param("userId") Long userId,
             @Param("previewTitleLength") int previewTitleLength,
             @Param("previewContentLength") int previewContentLength
