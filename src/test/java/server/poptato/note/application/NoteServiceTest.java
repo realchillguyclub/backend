@@ -81,7 +81,6 @@ public class NoteServiceTest extends ServiceTestConfig {
                     });
 
             verify(noteRepository, never()).save(any());
-
         }
     }
 
