@@ -1,7 +1,7 @@
 package server.poptato.note.application.response;
 
 import server.poptato.note.domain.entity.Note;
-import server.poptato.note.domain.summary.NoteSummary;
+import server.poptato.note.domain.preview.NotePreview;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +16,7 @@ public record NoteResponseDto(
         return new NoteResponseDto(note.getId(), note.getTitle(), note.getContent(), note.getModifyDate());
     }
 
-    public static NoteResponseDto fromPreview(NoteSummary note) {
+    public static NoteResponseDto fromPreview(NotePreview note) {
         return new NoteResponseDto(note.id(), note.previewTitle(), note.previewContent(), note.modifyDate());
     }
 }

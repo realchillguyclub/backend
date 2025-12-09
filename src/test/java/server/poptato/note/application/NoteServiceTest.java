@@ -8,12 +8,12 @@ import server.poptato.global.exception.CustomException;
 import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
+import server.poptato.note.application.response.NotePreviewListResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
-import server.poptato.note.application.response.NoteSummaryListResponseDto;
 import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.entity.Note;
+import server.poptato.note.domain.preview.NotePreview;
 import server.poptato.note.domain.repository.NoteRepository;
-import server.poptato.note.domain.summary.NoteSummary;
 import server.poptato.note.status.NoteErrorStatus;
 import server.poptato.user.validator.UserValidator;
 
@@ -133,21 +133,21 @@ public class NoteServiceTest extends ServiceTestConfig {
         Long userId = 1L;
         LocalDateTime now = LocalDateTime.now();
 
-        List<NoteSummary> summaries = List.of(
-                new NoteSummary(1L, "title1", "content1", now),
-                new NoteSummary(2L, "title2", "content2", now)
+        List<NotePreview> summaries = List.of(
+                new NotePreview(1L, "title1", "content1", now),
+                new NotePreview(2L, "title2", "content2", now)
         );
 
-        given(noteRepository.findSummariesByUserId(userId)).willReturn(summaries);
+        given(noteRepository.findNotePreviewsByUserId(userId)).willReturn(summaries);
 
         // when
-        NoteSummaryListResponseDto result = noteService.getNoteList(userId);
+        NotePreviewListResponseDto result = noteService.getNoteList(userId);
 
         // then
         // 유저 존재 검증 호출 여부
         verify(userValidator).checkIsExistUser(userId);
         // 레포지토리 호출 여부
-        verify(noteRepository).findSummariesByUserId(userId);
+        verify(noteRepository).findNotePreviewsByUserId(userId);
 
         // 반환 값 검증
         assertThat(result.notes()).hasSize(2);

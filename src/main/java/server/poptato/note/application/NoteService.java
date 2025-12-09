@@ -8,12 +8,12 @@ import server.poptato.global.exception.CustomException;
 import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
+import server.poptato.note.application.response.NotePreviewListResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
-import server.poptato.note.application.response.NoteSummaryListResponseDto;
 import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.entity.Note;
+import server.poptato.note.domain.preview.NotePreview;
 import server.poptato.note.domain.repository.NoteRepository;
-import server.poptato.note.domain.summary.NoteSummary;
 import server.poptato.note.status.NoteErrorStatus;
 import server.poptato.user.validator.UserValidator;
 
@@ -56,11 +56,11 @@ public class NoteService {
      * @return (노트 ID, 제목, 내용 미리보기) 리스트
      */
     @Transactional(readOnly = true)
-    public NoteSummaryListResponseDto getNoteList(Long userId) {
+    public NotePreviewListResponseDto getNoteList(Long userId) {
         userValidator.checkIsExistUser(userId);
-        List<NoteSummary> noteSummaryList = noteRepository.findSummariesByUserId(userId);
+        List<NotePreview> notePreviews = noteRepository.findNotePreviewsByUserId(userId);
 
-        return NoteSummaryListResponseDto.from(noteSummaryList);
+        return NotePreviewListResponseDto.from(notePreviews);
     }
 
     /**

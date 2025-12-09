@@ -11,8 +11,8 @@ import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
+import server.poptato.note.application.response.NotePreviewListResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
-import server.poptato.note.application.response.NoteSummaryListResponseDto;
 import server.poptato.note.application.response.NoteUpdateResponseDto;
 
 @RestController
@@ -48,10 +48,10 @@ public class NoteController {
      * @return 성공 여부를 나타내는 응답
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<NoteSummaryListResponseDto>> getNoteList(
+    public ResponseEntity<ApiResponse<NotePreviewListResponseDto>> getNoteList(
             @RequestHeader("Authorization") String authorizationHeader
     ) {
-        NoteSummaryListResponseDto responseDto = noteService.getNoteList(jwtService.extractUserIdFromToken(authorizationHeader));
+        NotePreviewListResponseDto responseDto = noteService.getNoteList(jwtService.extractUserIdFromToken(authorizationHeader));
         return ApiResponse.onSuccess(SuccessStatus._OK, responseDto);
     }
 
