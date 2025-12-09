@@ -15,7 +15,6 @@ import server.poptato.note.domain.entity.Note;
 import server.poptato.note.domain.repository.NoteRepository;
 import server.poptato.note.domain.summary.NoteSummary;
 import server.poptato.note.status.NoteErrorStatus;
-import server.poptato.note.validator.NoteValidator;
 import server.poptato.user.validator.UserValidator;
 
 import java.time.LocalDateTime;
@@ -41,25 +40,49 @@ public class NoteServiceTest extends ServiceTestConfig {
     @InjectMocks
     private NoteService noteService;
 
-    @Test
-    @DisplayName("[SCN-SVC-NOTE-001][TC-CREATE-001] 새 노트를 생성하고 noteId를 반환한다")
-    void create_note_and_return_note_id() {
-        // given
-        Long userId = 1L;
-        NoteCreateRequestDto requestDto = new NoteCreateRequestDto("title", "content");
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-NOTE-001] 노트를 생성한다")
+    class CreateNote {
 
-        NoteValidator.validateCreate(requestDto.title(), requestDto.content());
-        doNothing().when(userValidator).checkIsExistUser(userId);
+        @Test
+        @DisplayName("[TC-CREATE-001] 새 노트를 생성하고 noteId를 반환한다")
+        void create_note_and_return_note_id() {
+            // given
+            Long userId = 1L;
+            NoteCreateRequestDto requestDto = new NoteCreateRequestDto("title", "");
 
-        Note note = mock(Note.class);
-        when(note.getId()).thenReturn(1L);
-        when(noteRepository.save(any(Note.class))).thenReturn(note);
+            doNothing().when(userValidator).checkIsExistUser(userId);
 
-        // when
-        NoteCreateResponseDto responseDto = noteService.createNote(userId, requestDto);
+            Note note = mock(Note.class);
+            when(note.getId()).thenReturn(1L);
+            when(noteRepository.save(any(Note.class))).thenReturn(note);
 
-        // then
-        assertThat(responseDto.noteId()).isEqualTo(1L);
+            // when
+            NoteCreateResponseDto responseDto = noteService.createNote(userId, requestDto);
+
+            // then
+            assertThat(responseDto.noteId()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("[TC-CREATE-EXCEPTION-001] title과 content가 모두 비워져 있으면 노트를 생성하지 않고 예외를 던진다")
+        void createNote_whenTitleAndContentAreBlank_thenThrowException() {
+            // given
+            Long userId = 1L;
+            NoteCreateRequestDto request = new NoteCreateRequestDto("   ", null);
+
+            // when & then
+            assertThatThrownBy(() -> noteService.createNote(userId, request))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> {
+                        CustomException ce = (CustomException) ex;
+                        assertThat(ce.getErrorCode()).isEqualTo(NoteErrorStatus._EMPTY_TITLE_AND_CONTENT);
+                    });
+
+            verify(noteRepository, never()).save(any());
+
+        }
     }
 
     @Nested
