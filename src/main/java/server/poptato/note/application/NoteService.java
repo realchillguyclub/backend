@@ -1,6 +1,7 @@
 package server.poptato.note.application;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import server.poptato.global.exception.CustomException;
@@ -14,7 +15,6 @@ import server.poptato.note.domain.entity.Note;
 import server.poptato.note.domain.repository.NoteRepository;
 import server.poptato.note.domain.summary.NoteSummary;
 import server.poptato.note.status.NoteErrorStatus;
-import server.poptato.note.validator.NoteValidator;
 import server.poptato.user.validator.UserValidator;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class NoteService {
      */
     @Transactional
     public NoteCreateResponseDto createNote(Long userId, NoteCreateRequestDto requestDto) {
-        NoteValidator.validateCreate(requestDto.title(), requestDto.content());
+        validateTitleAndContent(requestDto.title(), requestDto.content());
         userValidator.checkIsExistUser(userId);
 
         Note note = noteRepository.save(
@@ -90,18 +90,20 @@ public class NoteService {
      */
     @Transactional
     public NoteUpdateResponseDto updateNote(Long userId, Long noteId, NoteUpdateRequestDto requestDto) {
+        validateTitleAndContent(requestDto.title(), requestDto.content());
         userValidator.checkIsExistUser(userId);
+
         Note note = noteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
 
-        if (Objects.equals(note.getTitle(), requestDto.title())
-                && Objects.equals(note.getContent(), requestDto.content())) {
-            return new NoteUpdateResponseDto(note.getId(), note.getModifyDate());
+        boolean isModified = !Objects.equals(note.getTitle(), requestDto.title())
+                || !Objects.equals(note.getContent(), requestDto.content());
+
+        if (isModified) {
+            note.update(requestDto.title(), requestDto.content());
         }
 
-        note.update(requestDto.title(), requestDto.content());
-
-        return new NoteUpdateResponseDto(note.getId(), note.getModifyDate());
+        return NoteUpdateResponseDto.from(note);
     }
 
     /**
@@ -117,5 +119,14 @@ public class NoteService {
                 .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
 
         noteRepository.delete(note);
+    }
+
+    private void validateTitleAndContent(String title, String content) {
+        boolean isTitleBlank = StringUtils.isBlank(title);
+        boolean isContentBlank = StringUtils.isBlank(content);
+
+        if (isTitleBlank && isContentBlank) {
+            throw new CustomException(NoteErrorStatus._EMPTY_TITLE_AND_CONTENT);
+        }
     }
 }
