@@ -14,7 +14,6 @@ public enum SuccessStatus implements BaseCode {
     _CREATED(HttpStatus.CREATED, "GLOBAL-201", "생성에 성공했습니다."),
     _NO_CONTENT(HttpStatus.NO_CONTENT, "GLOBAL-204", "콘텐츠가 없습니다.");
 
-
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
