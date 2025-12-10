@@ -1,5 +1,6 @@
 package server.poptato.todo.api;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -66,7 +67,7 @@ public class TodoTodayController {
     @PostMapping("/todays")
     public ResponseEntity<ApiResponse<TodayTodoCreateResponseDto>> createTodayTodo(
             @RequestHeader("Authorization") String authorizationHeader,
-            @Validated @RequestBody TodayTodoCreateRequestDto todayTodoCreateRequestDto
+            @Valid @RequestBody TodayTodoCreateRequestDto todayTodoCreateRequestDto
     ) {
         TodayTodoCreateResponseDto response = todoTodayService.createTodayTodo(jwtService.extractUserIdFromToken(authorizationHeader), todayTodoCreateRequestDto);
         return ApiResponse.onSuccess(SuccessStatus._CREATED, response);
