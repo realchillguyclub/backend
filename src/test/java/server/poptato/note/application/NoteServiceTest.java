@@ -8,7 +8,7 @@ import server.poptato.global.exception.CustomException;
 import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
-import server.poptato.note.application.response.NotePreviewListResponseDto;
+import server.poptato.note.application.response.NotePreviewsResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
 import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.entity.Note;
@@ -141,7 +141,7 @@ public class NoteServiceTest extends ServiceTestConfig {
         given(noteRepository.findNotePreviewsByUserId(userId)).willReturn(summaries);
 
         // when
-        NotePreviewListResponseDto result = noteService.getNoteList(userId);
+        NotePreviewsResponseDto result = noteService.getNoteList(userId);
 
         // then
         // 유저 존재 검증 호출 여부

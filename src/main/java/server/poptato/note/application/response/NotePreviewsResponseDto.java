@@ -4,12 +4,12 @@ import server.poptato.note.domain.preview.NotePreview;
 
 import java.util.List;
 
-public record NotePreviewListResponseDto(
+public record NotePreviewsResponseDto(
         List<NoteResponseDto> notes
 ) {
 
-    public static NotePreviewListResponseDto from(List<NotePreview> noteSummaryList) {
-        return new NotePreviewListResponseDto(
+    public static NotePreviewsResponseDto from(List<NotePreview> noteSummaryList) {
+        return new NotePreviewsResponseDto(
                 noteSummaryList.stream()
                         .map(NoteResponseDto::fromPreview)
                         .toList()

@@ -19,7 +19,7 @@ import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
-import server.poptato.note.application.response.NotePreviewListResponseDto;
+import server.poptato.note.application.response.NotePreviewsResponseDto;
 import server.poptato.note.application.response.NoteResponseDto;
 import server.poptato.note.application.response.NoteUpdateResponseDto;
 import server.poptato.note.domain.preview.NotePreview;
@@ -109,7 +109,7 @@ public class NoteControllerTest extends ControllerTestConfig {
                 new NotePreview(1L, "title1", "content1", now),
                 new NotePreview(2L, "title2", "content2", now)
         );
-        NotePreviewListResponseDto response = NotePreviewListResponseDto.from(summaries);
+        NotePreviewsResponseDto response = NotePreviewsResponseDto.from(summaries);
 
         Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
         Mockito.when(noteService.getNoteList(1L)).thenReturn(response);
