@@ -22,7 +22,9 @@ import server.poptato.todo.domain.value.Type;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.validator.UserValidator;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -55,13 +57,21 @@ public class TodoBacklogService {
         Page<Todo> backlogs = getBacklogsPagination(userId, categoryId, page, size);
         String categoryName = categoryRepository.findById(categoryId).get().getName();
 
-        List<BacklogResponseDto> backlogDtos = backlogs.getContent().stream()
-                .map(todo -> {
-                    List<String> routineDays = routineRepository.findAllByTodoId(todo.getId())
-                            .stream()
-                            .map(Routine::getDay)
-                            .collect(Collectors.toList());
+        List<Long> todoIds = backlogs.stream()
+                .map(Todo::getId)
+                .toList();
 
+        List<Routine> allRoutines = routineRepository.findAllByTodoIdIn(todoIds);
+
+        Map<Long, List<String>> routineMap = allRoutines.stream()
+                .collect(Collectors.groupingBy(
+                        Routine::getTodoId,
+                        Collectors.mapping(Routine::getDay, Collectors.toList())
+                ));
+
+        List<BacklogResponseDto> backlogDtos = backlogs.stream()
+                .map(todo -> {
+                    List<String> routineDays = routineMap.getOrDefault(todo.getId(), Collections.emptyList());
                     return BacklogResponseDto.of(todo, mobileType, routineDays);
                 })
                 .toList();
