@@ -1,15 +1,18 @@
 package server.poptato.note.application.response;
 
+import server.poptato.global.util.TimeUtil;
 import server.poptato.note.domain.entity.Note;
-
-import java.time.LocalDateTime;
 
 public record NoteUpdateResponseDto(
         Long noteId,
-        LocalDateTime modifyDate
+        String modifyDate,
+        String modifyTime
 ) {
     public static NoteUpdateResponseDto from(Note note) {
-        return new NoteUpdateResponseDto(note.getId(), note.getModifyDate());
+        return new NoteUpdateResponseDto(
+                note.getId(),
+                TimeUtil.getDate(note.getModifyDate()),
+                TimeUtil.getTime(note.getModifyDate())
+        );
     }
-
 }
