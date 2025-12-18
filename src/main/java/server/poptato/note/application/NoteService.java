@@ -1,11 +1,9 @@
 package server.poptato.note.application;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import server.poptato.global.exception.CustomException;
-import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
 import server.poptato.note.application.response.NotePreviewsResponseDto;
@@ -31,18 +29,14 @@ public class NoteService {
      * 노트를 생성합니다.
      *
      * @param userId 사용자 ID
-     * @param requestDto 노트 생성 요청 데이터 (제목, 내용)
      * @return 생성된 노트 ID
      */
     @Transactional
-    public NoteCreateResponseDto createNote(Long userId, NoteCreateRequestDto requestDto) {
-        validateTitleAndContent(requestDto.title(), requestDto.content());
+    public NoteCreateResponseDto createNote(Long userId) {
         userValidator.checkIsExistUser(userId);
 
         Note note = noteRepository.save(
                 Note.builder()
-                        .title(requestDto.title())
-                        .content(requestDto.content())
                         .userId(userId)
                         .build());
 
@@ -90,7 +84,6 @@ public class NoteService {
      */
     @Transactional
     public NoteUpdateResponseDto updateNote(Long userId, Long noteId, NoteUpdateRequestDto requestDto) {
-        validateTitleAndContent(requestDto.title(), requestDto.content());
         userValidator.checkIsExistUser(userId);
 
         Note note = noteRepository.findByIdAndUserId(noteId, userId)
@@ -119,14 +112,5 @@ public class NoteService {
                 .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
 
         noteRepository.delete(note);
-    }
-
-    private void validateTitleAndContent(String title, String content) {
-        boolean isTitleBlank = StringUtils.isBlank(title);
-        boolean isContentBlank = StringUtils.isBlank(content);
-
-        if (isTitleBlank && isContentBlank) {
-            throw new CustomException(NoteErrorStatus._EMPTY_TITLE_AND_CONTENT);
-        }
     }
 }
