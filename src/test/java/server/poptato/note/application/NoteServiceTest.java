@@ -5,7 +5,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import server.poptato.configuration.ServiceTestConfig;
 import server.poptato.global.exception.CustomException;
-import server.poptato.note.api.request.NoteCreateRequestDto;
+import server.poptato.global.util.TimeUtil;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.response.NoteCreateResponseDto;
 import server.poptato.note.application.response.NotePreviewsResponseDto;
@@ -50,7 +50,6 @@ public class NoteServiceTest extends ServiceTestConfig {
         void create_note_and_return_note_id() {
             // given
             Long userId = 1L;
-            NoteCreateRequestDto requestDto = new NoteCreateRequestDto("title", "");
 
             doNothing().when(userValidator).checkIsExistUser(userId);
 
@@ -59,28 +58,10 @@ public class NoteServiceTest extends ServiceTestConfig {
             when(noteRepository.save(any(Note.class))).thenReturn(note);
 
             // when
-            NoteCreateResponseDto responseDto = noteService.createNote(userId, requestDto);
+            NoteCreateResponseDto responseDto = noteService.createNote(userId);
 
             // then
             assertThat(responseDto.noteId()).isEqualTo(1L);
-        }
-
-        @Test
-        @DisplayName("[TC-CREATE-EXCEPTION-001] title과 content가 모두 비워져 있으면 노트를 생성하지 않고 예외를 던진다")
-        void createNote_whenTitleAndContentAreBlank_thenThrowException() {
-            // given
-            Long userId = 1L;
-            NoteCreateRequestDto request = new NoteCreateRequestDto("   ", null);
-
-            // when & then
-            assertThatThrownBy(() -> noteService.createNote(userId, request))
-                    .isInstanceOf(CustomException.class)
-                    .satisfies(ex -> {
-                        CustomException ce = (CustomException) ex;
-                        assertThat(ce.getErrorCode()).isEqualTo(NoteErrorStatus._EMPTY_TITLE_AND_CONTENT);
-                    });
-
-            verify(noteRepository, never()).save(any());
         }
     }
 
@@ -154,7 +135,7 @@ public class NoteServiceTest extends ServiceTestConfig {
         assertThat(result.notes().get(0).noteId()).isEqualTo(1L);
         assertThat(result.notes().get(0).title()).isEqualTo("title1");
         assertThat(result.notes().get(0).content()).isEqualTo("content1");
-        assertThat(result.notes().get(0).modifyDate()).isEqualTo(now);
+        assertThat(result.notes().get(0).modifyDate()).isEqualTo(TimeUtil.getDate(now));
     }
 
     @Nested
@@ -188,7 +169,7 @@ public class NoteServiceTest extends ServiceTestConfig {
             verify(note).update(requestDto.title(), requestDto.content());
 
             assertThat(response.noteId()).isEqualTo(noteId);
-            assertThat(response.modifyDate()).isEqualTo(modifyDate);
+            assertThat(response.modifyDate()).isEqualTo(TimeUtil.getDate(modifyDate));
         }
 
         @Test
@@ -219,7 +200,7 @@ public class NoteServiceTest extends ServiceTestConfig {
             verify(note, never()).update(anyString(), anyString());
 
             assertThat(response.noteId()).isEqualTo(noteId);
-            assertThat(response.modifyDate()).isEqualTo(modifyDate);
+            assertThat(response.modifyDate()).isEqualTo(TimeUtil.getDate(modifyDate));
         }
 
         @Test
