@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import server.poptato.category.domain.entity.Category;
 import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.category.validator.CategoryValidator;
 import server.poptato.todo.api.request.BacklogCreateRequestDto;
@@ -17,12 +18,15 @@ import server.poptato.todo.domain.entity.Routine;
 import server.poptato.todo.domain.entity.Todo;
 import server.poptato.todo.domain.repository.RoutineRepository;
 import server.poptato.todo.domain.repository.TodoRepository;
+import server.poptato.todo.domain.value.BacklogCategoryType;
 import server.poptato.todo.domain.value.TodayStatus;
 import server.poptato.todo.domain.value.Type;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.validator.UserValidator;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -50,20 +54,22 @@ public class TodoBacklogService {
      */
     public BacklogListResponseDto getBacklogList(Long userId, Long categoryId, MobileType mobileType, int page, int size) {
         userValidator.checkIsExistUser(userId);
-        categoryValidator.validateCategory(userId, categoryId);
+        // 1. Enum을 통해 카테고리 타입 결정
+        BacklogCategoryType backlogCategoryType = BacklogCategoryType.from(categoryId);
+        // 2. 카테고리 이름 조회 및 일반 카테고리 검증
+        String categoryName = getCategoryNameAndValidateIfNormal(backlogCategoryType, userId, categoryId);
+        // 3. 백로그 조회
+        PageRequest pageRequest = PageRequest.of(page, size);
+        Page<Todo> backlogs = backlogCategoryType.getBacklogs(todoRepository, userId, categoryId, pageRequest);
+        // 4. Routine 조회 및 매핑
+        Map<Long, List<String>> routineMap = getRoutineMap(backlogs.getContent());
 
-        Page<Todo> backlogs = getBacklogsPagination(userId, categoryId, page, size);
-        String categoryName = categoryRepository.findById(categoryId).get().getName();
-
-        List<BacklogResponseDto> backlogDtos = backlogs.getContent().stream()
-                .map(todo -> {
-                    List<String> routineDays = routineRepository.findAllByTodoId(todo.getId())
-                            .stream()
-                            .map(Routine::getDay)
-                            .collect(Collectors.toList());
-
-                    return BacklogResponseDto.of(todo, mobileType, routineDays);
-                })
+        List<BacklogResponseDto> backlogDtos = backlogs.stream()
+                .map(todo -> BacklogResponseDto.of(
+                        todo,
+                        mobileType,
+                        routineMap.getOrDefault(todo.getId(), Collections.emptyList())
+                ))
                 .toList();
 
         return BacklogListResponseDto.of(
@@ -126,23 +132,42 @@ public class TodoBacklogService {
     }
 
     /**
-     * 백로그 목록 페이지네이션 메서드.
-     * 사용자 ID와 카테고리 ID를 기반으로 백로그 목록을 페이지네이션합니다.
+     * 카테고리 이름을 반환하되, 일반 카테고리라면 소유권 검증도 함께 수행한다
      *
-     * @param userId 사용자 ID
+     * @param type 백로그 카테고리 타입
      * @param categoryId 카테고리 ID
-     * @param page 페이지 번호
-     * @param size 페이지 크기
-     * @return 페이지네이션된 백로그 목록
+     * @return 카테고리명
      */
-    private Page<Todo> getBacklogsPagination(Long userId, Long categoryId, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Type type = Type.BACKLOG;
-        TodayStatus status = TodayStatus.COMPLETED;
-        if (Objects.equals(categoryId, ALL_CATEGORY)) return todoRepository.findAllBacklogs(userId, type, status, pageRequest);
-        if (Objects.equals(categoryId, BOOKMARK_CATEGORY))
-            return todoRepository.findBookmarkBacklogs(userId, type, status, pageRequest);
-        return todoRepository.findBacklogsByCategoryId(userId, categoryId, type, status, pageRequest);
+    private String getCategoryNameAndValidateIfNormal(BacklogCategoryType type, Long userId, Long categoryId) {
+        if (type.getDefaultName() != null) {
+            return type.getDefaultName();
+        }
+
+        Category category = categoryValidator.validateAndReturnCategory(userId, categoryId);
+
+        return category.getName();
+    }
+
+    /**
+     * Todo 리스트에서 ID를 추출하여 Routine을 일괄 조회하고 Map으로 그룹화
+     *
+     * @param todos 할 일 목록
+     * @return 할 일 별로 Routine을 일괄 조회하여 그룹화 한 Map
+     */
+    private Map<Long, List<String>> getRoutineMap(List<Todo> todos) {
+        if (todos.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> todoIds = todos.stream()
+                .map(Todo::getId)
+                .toList();
+
+        return routineRepository.findAllByTodoIdIn(todoIds).stream()
+                .collect(Collectors.groupingBy(
+                        Routine::getTodoId,
+                        Collectors.mapping(Routine::getDay, Collectors.toList())
+                ));
     }
 
     /**
