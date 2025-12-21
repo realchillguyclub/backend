@@ -32,4 +32,6 @@ public interface JpaRoutineRepository extends JpaRepository<Routine, Long> {
        GROUP BY r.day
        """)
 	List<RoutineCountProjection> countRoutinesByDay(@Param("userId") Long userId);
+
+    List<Routine> findAllByTodoIdIn(List<Long> todoIds);
 }

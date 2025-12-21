@@ -1,9 +1,12 @@
 package server.poptato.auth.api.request;
 
-import jakarta.validation.constraints.NotBlank;
+import server.poptato.auth.api.validation.ClientIdMatchesMobileType;
+import server.poptato.auth.api.validation.HasMobileTypeAndClientId;
+import server.poptato.user.domain.value.MobileType;
 
+@ClientIdMatchesMobileType
 public record FCMTokenRequestDto(
-        @NotBlank(message = "fcm 토큰은 필수입니다.")
+        MobileType mobileType,
         String clientId
-) {
+) implements HasMobileTypeAndClientId {
 }

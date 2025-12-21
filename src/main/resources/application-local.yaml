@@ -36,6 +36,9 @@ oauth:
   kakao:
     iss: ${OAUTH_KAKAO_ISS}
     client-id: ${OAUTH_KAKAO_CLIENT_ID}
+    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI}
+    authorize-uri: ${OAUTH_KAKAO_AUTHORIZE_URI}
+    scope: ${OAUTH_KAKAO_SCOPE}
 
 jwt:
   secret: ${JWT_SECRET}
@@ -71,7 +74,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health, prometheus
+  server:
+    port: 9001
 
 springdoc:
   swagger-ui:

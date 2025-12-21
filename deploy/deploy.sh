@@ -29,6 +29,50 @@ send_discord_message() {
   curl -H "Content-Type: application/json" -d "{\"content\": \"$message\"}" $DISCORD_DEPLOY_RESULT_WEBHOOK_URL
 }
 
+#  Prometheus 타겟 업데이트 함수
+update_prometheus_target() {
+  local color="$1"      # blue | green
+  local port="$2"       # 9001 | 9002
+  local temp_local="/tmp/targets.json"
+
+  local remote_file="${REMOTE_TARGETS_FILE_PATH}"
+  local remote_home_tmp="~/targets.tmp.json"
+
+  echo ">>> Prometheus 타겟을 ${color} (${PROMETHEUS_TARGET_SERVER}:${port}) 로 변경합니다."
+  echo ">>> 대상 파일: ${MONITORING_SERVER_USER}@${MONITORING_SERVER}:${remote_file}"
+
+  cat > "$temp_local" <<EOF
+[
+  {
+    "targets": ["${PROMETHEUS_TARGET_SERVER}:${port}"],
+    "labels": { "color": "${color}" }
+  }
+]
+EOF
+
+  scp -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
+    "$temp_local" \
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER}:${remote_home_tmp}" || {
+      echo "💥 타겟 임시 업로드 실패"
+      rm -f "$temp_local"
+      exit 1
+    }
+
+  ssh -o StrictHostKeyChecking=yes -i "$SSH_KEY_PATH" \
+    "${MONITORING_SERVER_USER}@${MONITORING_SERVER}" \
+    "jq . ${remote_home_tmp} >/dev/null 2>&1 \
+      && mkdir -p \"\$(dirname \"${remote_file}\")\" \
+      && install -m 644 -T ${remote_home_tmp} ${remote_file} \
+      && rm -f ${remote_home_tmp}" || {
+        echo "💥 원격 JSON 검증/교체 실패(jq/권한/경로)"
+        rm -f "$temp_local"
+        exit 1
+      }
+
+  rm -f "$temp_local"
+  echo "✅ Prometheus 타겟 업데이트 완료"
+}
+
 # 💚 blue가 실행중이라면 green을 up합니다.
 if [ -z "$IS_GREEN" ]; then
   echo "### BLUE => GREEN ###"
@@ -43,7 +87,7 @@ if [ -z "$IS_GREEN" ]; then
   while true; do
     echo ">>> 2. green health check 중..."
     sleep 3
-    REQUEST=$(sudo docker exec illdan-green wget -qO- http://localhost:8085/actuator/health)
+    REQUEST=$(sudo docker exec illdan-green wget -qO- http://localhost:9001/actuator/health)
     if [[ "$REQUEST" == *"UP"* ]]; then
       echo "✅ health check success!!!"
       break
@@ -54,6 +98,9 @@ if [ -z "$IS_GREEN" ]; then
       exit 1
     fi
   done
+
+  # Prometheus 타겟 업데이트 (green, 9002 포트)
+  update_prometheus_target "green" "9002"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$GREEN_NGINX_CONF" "$NGINX_CONF"
@@ -81,7 +128,7 @@ else
   while true; do
     echo ">>> 2. blue health check 중..."
     sleep 3
-    REQUEST=$(sudo docker exec illdan-blue wget -qO- http://localhost:8085/actuator/health)
+    REQUEST=$(sudo docker exec illdan-blue wget -qO- http://localhost:9001/actuator/health)
     if [[ "$REQUEST" == *"UP"* ]]; then
       echo "✅ health check success!!!"
       break
@@ -92,6 +139,9 @@ else
       exit 1
     fi
   done
+
+  # Prometheus 타겟 업데이트 (blue, 9001 포트)
+  update_prometheus_target "blue" "9001"
 
   echo ">>> 3. nginx 라우팅 변경 및 reload"
   sudo cp "$BLUE_NGINX_CONF" "$NGINX_CONF"

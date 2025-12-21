@@ -52,13 +52,14 @@ public class UserService {
         User user = userValidator.checkIsExistAndReturnUser(userId);
 
         Mobile mobile = mobileRepository.findTopByUserIdOrderByModifyDateDesc(user.getId())
-                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_FOUND_FCM_TOKEN_BY_USER_ID));
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_FOUND_MOBILE_BY_USER_ID));
         eventPublisher.publishEvent(DeleteUserEvent.from(user, mobile, requestDTO.reasons(), requestDTO.userInputReason()));
 
         saveDeleteReasons(userId, requestDTO.reasons(), requestDTO.userInputReason());
+        mobileRepository.deleteByUserId(userId);
         userRepository.delete(user);
         categoryRepository.deleteByUserId(userId);
-        jwtService.deleteRefreshToken(String.valueOf(userId));
+        jwtService.deleteAllRefreshTokens(String.valueOf(userId));
     }
 
     private void saveDeleteReasons(Long userId, List<Reason> reasons, String userInputReason) {
@@ -106,7 +107,7 @@ public class UserService {
         Comment comment = commentRepository.save(Comment.createComment(requestDTO, user.getId()));
 
         Mobile mobile = mobileRepository.findTopByUserIdOrderByModifyDateDesc(user.getId())
-                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_FOUND_FCM_TOKEN_BY_USER_ID));
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_FOUND_MOBILE_BY_USER_ID));
         eventPublisher.publishEvent(CreateUserCommentEvent.from(comment, user.getName(), mobile.getType().toString()));
     }
 }

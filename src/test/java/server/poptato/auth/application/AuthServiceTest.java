@@ -1,15 +1,11 @@
 package server.poptato.auth.application;
 
-import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import server.poptato.auth.api.request.FCMTokenRequestDto;
@@ -41,10 +37,10 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class AuthServiceTest extends ServiceTestConfig {
 
@@ -75,251 +71,355 @@ class AuthServiceTest extends ServiceTestConfig {
     @InjectMocks
     private AuthService authService;
 
+    private static LoginRequestDto loginRequestDto(SocialType socialType, MobileType mobileType, String clientId, String name) {
+        return new LoginRequestDto(socialType, "access-token", mobileType, clientId, name, "test@test.com");
+    }
+
+    private static SocialUserInfo socialUserInfo() {
+        return new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com");
+    }
+
+    private static ReissueTokenRequestDto reissueTokenRequestDto(String refreshToken, MobileType mobileType, String clientId) {
+        return new ReissueTokenRequestDto("access-token", refreshToken, mobileType, clientId);
+    }
+
+    private static Stream<MobileType> 디바이스() {
+        return Stream.of(MobileType.ANDROID, MobileType.DESKTOP);
+    }
+
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-AUTH-001] 회원가입 및 로그인 시 신규 유저 생성, 유저 정보를 업데이트 한다.")
+    class Login {
+
+        @Test
+        @DisplayName("[TC-LOGIN-001] ANDROID에서 신규 유저 소셜 로그인 시, 유저가 생성되어 저장되고 응답에 isNew=true 가 포함된다")
+        void login_새로운_유저_로그인_성공_ANDROID() {
+            //given
+            Long userId = 1L;
+            String clientId = "client-id";
+            MobileType mobileType = MobileType.ANDROID;
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, clientId, "tester");
+            SocialUserInfo userInfo = socialUserInfo();
+
+            when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
+            when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+
+            when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
+                    .thenAnswer(invocation -> {
+                        Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
+                        return supplier.get();
+                    });
+
+            when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.empty());
+
+            ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+            when(userRepository.save(any(User.class)))
+                    .thenAnswer(invocation -> {
+                        User user = invocation.getArgument(0);
+                        ReflectionTestUtils.setField(user, "id", userId); // ID 주입
+                        return user;
+                    });
+
+            when(userRepository.count()).thenReturn(1L);
+            when(mobileRepository.findByClientId(requestDto.clientId())).thenReturn(Optional.empty());
+            doNothing().when(eventPublisher).publishEvent(any(CreateUserEvent.class));
+            TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(tokenPair);
+
+            // when
+            LoginResponseDto responseDto = authService.login(requestDto);
+
+            // then
+            assertThat(responseDto).isNotNull();
+            assertThat(responseDto.accessToken()).isEqualTo("access-token");
+            assertThat(responseDto.refreshToken()).isEqualTo("refresh-token");
+            assertThat(responseDto.userId()).isEqualTo(userId);
+            assertThat(responseDto.isNewUser()).isTrue();
+
+            verify(userRepository).save(userCaptor.capture());
+            User savedUser = userCaptor.getValue();
+            assertThat(savedUser.getId()).isEqualTo(userId);
+            assertThat(savedUser.getEmail()).isEqualTo(userInfo.email());
+            verify(eventPublisher).publishEvent(any(CreateUserEvent.class));
+            verify(mobileRepository).save(any(Mobile.class));
+        }
+
+        @Test
+        @DisplayName("[TC-LOGIN-002] DESKTOP에서 신규 유저 소셜 로그인 시, 유저가 생성되어 저장되고 응답에 isNew=true 가 포함된다")
+        void login_새로운_유저_로그인_성공_DESKTOP() {
+            //given
+            Long userId = 1L;
+            MobileType mobileType = MobileType.DESKTOP;
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, null, "tester");
+            SocialUserInfo userInfo = socialUserInfo();
+
+            when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
+            when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+
+            when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
+                    .thenAnswer(invocation -> {
+                        Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
+                        return supplier.get();
+                    });
+
+            when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.empty());
+
+            ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+            when(userRepository.save(any(User.class)))
+                    .thenAnswer(invocation -> {
+                        User user = invocation.getArgument(0);
+                        ReflectionTestUtils.setField(user, "id", userId);
+                        return user;
+                    });
+
+            when(userRepository.count()).thenReturn(1L);
+            when(mobileRepository.findByUserIdAndType(userId, requestDto.mobileType())).thenReturn(Optional.empty());
+            doNothing().when(eventPublisher).publishEvent(any(CreateUserEvent.class));
+            TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(tokenPair);
+
+            // when
+            LoginResponseDto responseDto = authService.login(requestDto);
+
+            // then
+            assertThat(responseDto).isNotNull();
+            assertThat(responseDto.accessToken()).isEqualTo("access-token");
+            assertThat(responseDto.refreshToken()).isEqualTo("refresh-token");
+            assertThat(responseDto.userId()).isEqualTo(userId);
+            assertThat(responseDto.isNewUser()).isTrue();
+
+            verify(userRepository).save(userCaptor.capture());
+            User savedUser = userCaptor.getValue();
+            assertThat(savedUser.getId()).isEqualTo(userId);
+            assertThat(savedUser.getEmail()).isEqualTo(userInfo.email());
+            verify(eventPublisher).publishEvent(any(CreateUserEvent.class));
+            verify(mobileRepository).save(any(Mobile.class));
+        }
+
+        @Test
+        @DisplayName("[TC-LOGIN-003] 신규 유저 애플 로그인 시, name이 null 인 경우 AuthErrorStatus._HAS_NOT_NEW_APPLE_USER_NAME 예외가 발생한다")
+        void login_새로운_APPLE_유저_로그인_실패() {
+            //given
+            LoginRequestDto requestDto = loginRequestDto(SocialType.APPLE, MobileType.IOS, "client-id", null);
+            SocialUserInfo userInfo = socialUserInfo();
+            when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
+            when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+
+            when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
+                    .thenAnswer(invocation -> {
+                        Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
+                        return supplier.get();
+                    });
+
+            when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.empty());
+
+            // when
+            CustomException exception = assertThrows(CustomException.class, () -> authService.login(requestDto));
+
+            // then
+            assertThat(exception.getErrorCode()).isEqualTo(AuthErrorStatus._HAS_NOT_NEW_APPLE_USER_NAME);
+        }
+
+        @Test
+        @DisplayName("[TC-LOGIN-004] 기존 유저 소셜 로그인 시, 유저의 정보(이미지url, fcm토큰)가 업데이트 되고 응답에 isNew=false가 포함된다")
+        void login_존재하는_유저_로그인_성공() {
+            //given
+            MobileType mobileType = MobileType.ANDROID;
+            String clientId = "client-id";
+            LoginRequestDto requestDto = loginRequestDto(SocialType.KAKAO, mobileType, clientId, "tester");
+            SocialUserInfo userInfo = socialUserInfo();
+            Long userId = 1L;
+
+            User existingUser = User.createUser(requestDto, userInfo, "https://image.com");
+            ReflectionTestUtils.setField(existingUser, "id", userId);
+
+            when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
+            when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+
+            when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
+                    .thenAnswer(invocation -> {
+                        Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
+                        return supplier.get();
+                    });
+
+            when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.of(existingUser));
+            when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.of(mock(Mobile.class)));
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType))
+                    .thenReturn(new TokenPair("access-token", "refresh-token"));
+
+            // when
+            LoginResponseDto response = authService.login(requestDto);
+
+            // then
+            assertThat(response.userId()).isEqualTo(userId);
+            assertThat(response.isNewUser()).isFalse();
+            assertThat(response.accessToken()).isEqualTo("access-token");
+            assertThat(response.refreshToken()).isEqualTo("refresh-token");
+
+            verify(userRepository).findBySocialId(userInfo.socialId());
+            verify(jwtService).generateTokenPair(String.valueOf(userId), mobileType);
+            verify(mobileRepository).findByClientId(clientId);
+            verify(userRepository, never()).save(existingUser);
+        }
+
+        @Test
+        @DisplayName("[TC-SVC-LOGIN-005] 로그인 시 락 획득에 실패하면 AuthErrorStatus._SIGNUP_IN_PROGRESS 예외가 발생한다")
+        void login_락_획득_실패_시_SIGNUP_IN_PROGRESS_예외_발생() {
+            // given
+            LoginRequestDto requestDto = new LoginRequestDto(SocialType.KAKAO, "access-token", MobileType.ANDROID, "client-id", null, null);
+            SocialUserInfo userInfo = socialUserInfo();
+
+            when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
+            when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+
+            when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
+                    .thenThrow(new CustomException(LockErrorStatus._LOCK_ACQUISITION_FAILED));
+
+            // when
+            CustomException exception = assertThrows(CustomException.class, () -> authService.login(requestDto));
+
+            // then
+            assertThat(exception.getErrorCode()).isEqualTo(AuthErrorStatus._SIGNUP_IN_PROGRESS);
+        }
+    }
+
     @ParameterizedTest
-    @MethodSource("소셜_종류별")
-    @DisplayName("[SCN-SVC-AUTH-001][TC-SVC-LOGIN-001] 신규 유저 소셜 로그인 시, 유저가 생성되어 저장되고 응답에 isNew=true 가 포함된다")
-    void login_새로운_유저_로그인_성공(LoginRequestDto requestDto, SocialUserInfo userInfo) {
+    @MethodSource("디바이스")
+    @DisplayName("[SCN-SVC-AUTH-002][TC-LOGOUT-001] 로그아웃시 정상적으로 로그아웃된다")
+    void logout_로그아웃_성공(MobileType mobileType) {
         //given
         Long userId = 1L;
+        FCMTokenRequestDto requestDto = new FCMTokenRequestDto(mobileType, "client-id");
 
-        // 1. 소셜 서비스 모킹
-        Mockito.when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
-        Mockito.when(socialService.getUserData(requestDto)).thenReturn(userInfo);
+        doNothing().when(userValidator).checkIsExistUser(userId);
 
-        // 2. 분산 락 모킹
-        Mockito.when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
-            .thenAnswer(invocation -> {
-                Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
-
-        // 3. 기존 유저 아님
-        Mockito.when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.empty());
-
-        // 4. 새로운 유저 저장
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        Mockito.when(userRepository.save(any(User.class)))
-                .thenAnswer(invocation -> {
-                    User user = invocation.getArgument(0);
-                    ReflectionTestUtils.setField(user, "id", userId); // ID 주입
-                    return user;
-                });
-
-        // 5. 유저 수 조회
-        Mockito.when(userRepository.count()).thenReturn(1L);
-
-        // 6. FCM 저장 관련
-        Mockito.when(mobileRepository.findByClientId(requestDto.clientId())).thenReturn(Optional.empty());
-
-        // 7. 이벤트 발행
-        Mockito.doNothing().when(eventPublisher).publishEvent(any(CreateUserEvent.class));
-
-        // 8. 토큰 생성
-        TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
-        Mockito.when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(tokenPair);
-
-        // when
-        LoginResponseDto responseDto = authService.login(requestDto);
-
-        // then
-        Assertions.assertThat(responseDto).isNotNull();
-        Assertions.assertThat(responseDto.accessToken()).isEqualTo("access-token");
-        Assertions.assertThat(responseDto.refreshToken()).isEqualTo("refresh-token");
-        Assertions.assertThat(responseDto.userId()).isEqualTo(userId);
-        Assertions.assertThat(responseDto.isNewUser()).isTrue();
-
-        // 유저 저장 검증
-        Mockito.verify(userRepository).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
-        Assertions.assertThat(savedUser.getId()).isEqualTo(userId);
-        Assertions.assertThat(savedUser.getEmail()).isEqualTo(userInfo.email());
-        // 이벤트 발행 검증
-        Mockito.verify(eventPublisher).publishEvent(any(CreateUserEvent.class));
-        // FCM 저장 검증
-        Mockito.verify(mobileRepository).save(any(Mobile.class));
-    }
-
-
-    private static Stream<Arguments> 소셜_종류별() {
-        return Stream.of(
-                Arguments.of(
-                        new LoginRequestDto(SocialType.KAKAO, "access-token", MobileType.ANDROID, "client-id", null, null),
-                        new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com")
-                ),
-                Arguments.of(
-                        new LoginRequestDto(SocialType.APPLE, "access-token", MobileType.IOS, "client-id", "테스터", "test@test.com"),
-                        new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com")
-                )
-        );
-    }
-
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-001][TC-SVC-LOGIN-002] 신규 유저 애플 로그인 시, name이 null 인 경우 AuthErrorStatus._HAS_NOT_NEW_APPLE_USER_NAME 예외가 발생한다")
-    void login_새로운_APPLE_유저_로그인_실패() {
-        //given
-        LoginRequestDto requestDto = new LoginRequestDto(SocialType.APPLE, "access-token", MobileType.IOS, "client-id", null, "test@test.com");
-        SocialUserInfo userInfo = new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com");
-        Mockito.when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
-        Mockito.when(socialService.getUserData(requestDto)).thenReturn(userInfo);
-
-        Mockito.when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
-            .thenAnswer(invocation -> {
-                Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
-
-        Mockito.when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.empty());
-
-        // when
-        CustomException exception = assertThrows(CustomException.class, () -> authService.login(requestDto));
-
-        // then
-        Assertions.assertThat(exception.getErrorCode()).isEqualTo(AuthErrorStatus._HAS_NOT_NEW_APPLE_USER_NAME);
-    }
-
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-001][TC-SVC-LOGIN-003] 기존 유저 소셜 로그인 시, 유저의 정보(이미지url, fcm토큰)가 업데이트 되고 응답에 isNew=false가 포함된다")
-    void login_존재하는_유저_로그인_성공() {
-        //given
-        LoginRequestDto requestDto = new LoginRequestDto(SocialType.KAKAO, "access-token", MobileType.ANDROID, "client-id", null, null);
-        SocialUserInfo userInfo = new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com");
-        Long userId = 1L;
-
-        User existingUser = User.createUser(requestDto, userInfo, "https://image.com");
-        ReflectionTestUtils.setField(existingUser, "id", userId);
-
-        Mockito.when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
-        Mockito.when(socialService.getUserData(requestDto)).thenReturn(userInfo);
-
-        Mockito.when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
-            .thenAnswer(invocation -> {
-                Supplier<LoginResponseDto> supplier = invocation.getArgument(1);
-                return supplier.get();
-            });
-
-        Mockito.when(userRepository.findBySocialId(userInfo.socialId())).thenReturn(Optional.of(existingUser));
-        Mockito.when(mobileRepository.findByClientId("client-id")).thenReturn(Optional.of(mock(Mobile.class))); // 중복
-        Mockito.when(jwtService.generateTokenPair(String.valueOf(userId)))
-                .thenReturn(new TokenPair("access-token", "refresh-token"));
-
-        // when
-        LoginResponseDto response = authService.login(requestDto);
-
-        // then
-        Assertions.assertThat(response.userId()).isEqualTo(userId);
-        Assertions.assertThat(response.isNewUser()).isFalse();
-        Assertions.assertThat(response.accessToken()).isEqualTo("access-token");
-        Assertions.assertThat(response.refreshToken()).isEqualTo("refresh-token");
-
-        Mockito.verify(userRepository).findBySocialId(userInfo.socialId());
-        Mockito.verify(jwtService).generateTokenPair(String.valueOf(userId));
-        Mockito.verify(mobileRepository).findByClientId("client-id");
-        Mockito.verify(userRepository, Mockito.never()).save(existingUser); // image 안 바뀌면 저장 안 함
-    }
-
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-001][TC-SVC-LOGIN-004] 로그인 시 락 획득에 실패하면 AuthErrorStatus._SIGNUP_IN_PROGRESS 예외가 발생한다")
-    void login_락_획득_실패_시_SIGNUP_IN_PROGRESS_예외_발생() {
-        // given
-        LoginRequestDto requestDto = new LoginRequestDto(SocialType.KAKAO, "access-token", MobileType.ANDROID, "client-id", null, null);
-        SocialUserInfo userInfo = new SocialUserInfo("social-id", "테스터", "test@test.com", "https://image.com");
-
-        when(socialServiceProvider.getSocialService(requestDto.socialType())).thenReturn(socialService);
-        when(socialService.getUserData(requestDto)).thenReturn(userInfo);
-
-        // 분산 락 획득 실패 모킹
-        when(distributedLockFacade.executeWithLock(eq(userInfo.socialId()), any()))
-                .thenThrow(new CustomException(LockErrorStatus._LOCK_ACQUISITION_FAILED));
-
-        // when
-        CustomException exception = assertThrows(CustomException.class, () -> authService.login(requestDto));
-
-        // then
-        Assertions.assertThat(exception.getErrorCode()).isEqualTo(AuthErrorStatus._SIGNUP_IN_PROGRESS);
-    }
-
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-002][TC-SVC-LOGOUT-001] 로그아웃시 정상적으로 로그아웃된다")
-    void logout_로그아웃_성공() {
-        //given
-        Long userId = 1L;
-        FCMTokenRequestDto requestDto = new FCMTokenRequestDto("client-id");
-
-        Mockito.doNothing().when(userValidator).checkIsExistUser(userId);
-        Mockito.doNothing().when(mobileRepository).deleteByClientId(requestDto.clientId());
-        Mockito.doNothing().when(jwtService).deleteRefreshToken(String.valueOf(userId));
+        if (requestDto.mobileType() == MobileType.DESKTOP) {
+            doNothing().when(mobileRepository).deleteByUserIdAndType(userId, requestDto.mobileType());
+        } else {
+            doNothing().when(mobileRepository).deleteByClientId(requestDto.clientId());
+        }
+        doNothing().when(jwtService).deleteRefreshToken(String.valueOf(userId), mobileType);
 
         //when
         authService.logout(userId, requestDto);
 
         //then
-        Mockito.verify(userValidator).checkIsExistUser(userId);
-        Mockito.verify(mobileRepository).deleteByClientId(requestDto.clientId());
-        Mockito.verify(jwtService).deleteRefreshToken(String.valueOf(userId));
+        verify(userValidator).checkIsExistUser(userId);
+        if (requestDto.mobileType() == MobileType.DESKTOP) {
+            verify(mobileRepository).deleteByUserIdAndType(userId, requestDto.mobileType());
+        } else {
+            verify(mobileRepository).deleteByClientId(requestDto.clientId());
+        }
+        verify(jwtService).deleteRefreshToken(String.valueOf(userId), mobileType);
     }
 
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-003][TC-SVC-JWT-001] 유효한 리프레시 토큰을 기반으로 새로운 토큰 페어를 생성하여 반환한다")
-    void refresh_jwt_토큰_갱신() {
-        //given
-        Long userId = 1L;
-        ReissueTokenRequestDto requestDto = new ReissueTokenRequestDto("access-token", "refresh-token", "client-id");
-        TokenPair tokenPair = new TokenPair("access-token", "refresh-token");
+    @Nested
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    @DisplayName("[SCN-SVC-AUTH-003] 토큰을 갱신한다")
+    class RefreshToken {
 
-        Mockito.doNothing().when(jwtService).verifyRefreshToken(requestDto.refreshToken());
-        Mockito.when(jwtService.getUserIdInToken(requestDto.refreshToken())).thenReturn(String.valueOf(userId));
-        Mockito.doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), requestDto.refreshToken());
+        @Test
+        @DisplayName("[TC-JWT-001] 유효한 리프레시 토큰을 기반으로 새로운 토큰 페어를 생성하여 반환한다.")
+        void 토큰갱신_성공_새토큰페어반환() {
+            // given
+            Long userId = 100L;
+            String refreshToken = "refresh-old";
+            MobileType mobileType = MobileType.ANDROID;
+            String clientId = "client-ok";
 
-        Mockito.doNothing().when(userValidator).checkIsExistUser(userId);
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
-        Mockito.when(jwtService.generateTokenPair(String.valueOf(userId))).thenReturn(tokenPair);
-        Mockito.doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), tokenPair.refreshToken());
+            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
+            when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
+            doNothing().when(userValidator).checkIsExistUser(userId);
 
-        //when
-        TokenPair result = authService.refresh(requestDto);
+            Mobile mobile = mock(Mobile.class);
+            when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.of(mobile));
 
-        // then
-        assertEquals(tokenPair.accessToken(), result.accessToken());
-        assertEquals(tokenPair.refreshToken(), result.refreshToken());
+            TokenPair newPair = new TokenPair("access-new", "refresh-new");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(newPair);
+            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
 
-        Mockito.verify(jwtService).verifyRefreshToken(requestDto.refreshToken());
-        Mockito.verify(jwtService).getUserIdInToken(requestDto.refreshToken());
-        Mockito.verify(jwtService).compareRefreshToken(String.valueOf(userId), requestDto.refreshToken());
-        Mockito.verify(userValidator).checkIsExistUser(userId);
-        Mockito.verify(jwtService).generateTokenPair(String.valueOf(userId));
-        Mockito.verify(jwtService).saveRefreshToken(String.valueOf(userId), tokenPair.refreshToken());
-    }
+            // when
+            TokenPair result = authService.refresh(dto);
 
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-004][TC-SVC-FCM-001] 존재하는 fcm토큰일 경우 접속한 날짜로 수정일을 변경한다")
-    void refreshFCMToken_존재하는_fcm토큰_정상_실행(){
-        // given
-        String clientId = "client-id";
-        Mobile mockMobile = Mockito.mock(Mobile.class);
-        Mockito.when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.of(mockMobile));
-        Mockito.doNothing().when(mockMobile).updateModifiedDate();
+            // then
+            assertThat(result.accessToken()).isEqualTo("access-new");
+            assertThat(result.refreshToken()).isEqualTo("refresh-new");
 
-        // when
-        authService.refreshFCMToken(clientId);
+            verify(jwtService).verifyRefreshToken(refreshToken);
+            verify(jwtService).getUserIdInToken(refreshToken);
+            verify(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
+            verify(userValidator).checkIsExistUser(userId);
 
-        // then
-        Mockito.verify(mobileRepository).findByClientId(clientId);
-        Mockito.verify(mockMobile).updateModifiedDate();
-    }
+            verify(mobileRepository).findByClientId(clientId);
+            verify(mobileRepository, never()).findByUserIdAndType(anyLong(), any());
 
-    @Test
-    @DisplayName("[SCN-SVC-AUTH-004][TC-SVC-FCM-002] 존재하지 않는 fcm토큰일 경우 예외가 발생한다")
-    void refreshFCMToken_존재하지_않는_fcm토큰_예외발생(){
-        // given
-        String clientId = "client-id";
-        Mockito.when(mobileRepository.findByClientId(clientId)).thenReturn(Optional.empty());
+            verify(mobile).updateModifiedDate();
+            verify(jwtService).generateTokenPair(String.valueOf(userId), mobileType);
+            verify(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
+        }
 
-        // when & then
-        CustomException exception = assertThrows(CustomException.class, () ->
-                authService.refreshFCMToken(clientId));
+        @Test
+        @DisplayName("[TC-MOBILE-001] 존재하는 Mobile일 경우 접속한 날짜로 수정일을 변경한다")
+        void 모바일_존재시_수정일_갱신() {
+            // given
+            Long userId = 200L;
+            String refreshToken = "refresh-old";
+            MobileType mobileType = MobileType.DESKTOP;
+            String clientId = "client-id";
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
-        assertEquals(MobileErrorStatus._NOT_EXIST_FCM_TOKEN, exception.getErrorCode());
+            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
+            when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
+            doNothing().when(userValidator).checkIsExistUser(userId);
 
-        Mockito.verify(mobileRepository).findByClientId(clientId);
+            Mobile mobile = mock(Mobile.class);
+            when(mobileRepository.findByUserIdAndType(userId, MobileType.DESKTOP)).thenReturn(Optional.of(mobile));
+
+            TokenPair pair = new TokenPair("access-new", "refresh-new");
+            when(jwtService.generateTokenPair(String.valueOf(userId), mobileType)).thenReturn(pair);
+            doNothing().when(jwtService).saveRefreshToken(String.valueOf(userId), mobileType, "refresh-new");
+
+            // when
+            TokenPair result = authService.refresh(dto);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(mobile).updateModifiedDate();
+        }
+
+        @Test
+        @DisplayName("[TC-MOBILE-002] 존재하지 않는 Mobile일 경우 MobileErrorStatus._NOT_EXIST_MOBILE 예외가 발생한다")
+        void 모바일_없으면_예외() {
+            // given
+            Long userId = 300L;
+            String refreshToken = "refresh-token";
+            MobileType mobileType = MobileType.DESKTOP;
+            String clientId = "client-id";
+            ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
+
+            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
+            when(jwtService.getUserIdInToken(refreshToken)).thenReturn(String.valueOf(userId));
+            doNothing().when(jwtService).compareRefreshToken(String.valueOf(userId), mobileType, refreshToken);
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            when(mobileRepository.findByUserIdAndType(userId, MobileType.DESKTOP)).thenReturn(Optional.empty());
+
+            // when
+            CustomException ex = assertThrows(CustomException.class, () -> authService.refresh(dto));
+
+            // then
+            assertThat(ex.getErrorCode()).isEqualTo(MobileErrorStatus._NOT_EXIST_MOBILE);
+
+            verify(mobileRepository).findByUserIdAndType(userId, MobileType.DESKTOP);
+            verify(mobileRepository, never()).findByClientId(anyString());
+
+            verify(jwtService, never()).generateTokenPair(anyString(), any());
+            verify(jwtService, never()).saveRefreshToken(anyString(), any(), anyString());
+        }
     }
 }

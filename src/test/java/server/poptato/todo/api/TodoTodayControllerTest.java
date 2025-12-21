@@ -16,9 +16,11 @@ import org.springframework.test.web.servlet.ResultActions;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.configuration.ControllerTestConfig;
 import server.poptato.todo.api.request.EventCreateRequestDto;
+import server.poptato.todo.api.request.TodayTodoCreateRequestDto;
 import server.poptato.todo.application.TodoTodayService;
 import server.poptato.todo.application.response.TodayListResponseDto;
 import server.poptato.todo.application.response.TodayResponseDto;
+import server.poptato.todo.application.response.TodayTodoCreateResponseDto;
 import server.poptato.todo.domain.value.TodayStatus;
 import server.poptato.user.domain.value.MobileType;
 
@@ -123,6 +125,54 @@ public class TodoTodayControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("result.totalPageCount").type(JsonFieldType.NUMBER).description("전체 페이지 수")
                                         )
                                         .responseSchema(Schema.schema("GetTodayListResponse"))
+                                        .build()
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("오늘에서 할 일을 생성한다.")
+    void createTodayTodo() throws Exception {
+        // given
+        TodayTodoCreateRequestDto request = new TodayTodoCreateRequestDto("New Todo");
+        TodayTodoCreateResponseDto response = new TodayTodoCreateResponseDto(1L);
+
+        Mockito.when(jwtService.extractUserIdFromToken(token)).thenReturn(1L);
+        Mockito.when(todoTodayService.createTodayTodo(anyLong(), any(TodayTodoCreateRequestDto.class))).thenReturn(response);
+
+        String requestBody = objectMapper.writeValueAsString(request);
+
+        // when
+        ResultActions resultActions = this.mockMvc.perform(
+                RestDocumentationRequestBuilders.post("/todays")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .content(requestBody)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isSuccess").value(true))
+                .andExpect(jsonPath("$.code").value("GLOBAL-201"))
+                .andExpect(jsonPath("$.message").value("생성에 성공했습니다."))
+
+                // docs
+                .andDo(MockMvcRestDocumentationWrapper.document("todo/create-today-todo",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        resource(
+                                ResourceSnippetParameters.builder()
+                                        .tag("Todo-Today API")
+                                        .description("오늘에서 할 일을 생성한다.")
+                                        .responseFields(
+                                                fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
+                                                fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                                                fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                                                fieldWithPath("result.todoId").type(JsonFieldType.NUMBER).description("할 일 ID")
+                                        )
+                                        .responseSchema(Schema.schema("TodayTodoCreateResponse"))
                                         .build()
                         )
                 ));

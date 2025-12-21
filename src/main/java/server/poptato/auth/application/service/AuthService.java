@@ -21,6 +21,7 @@ import server.poptato.user.domain.entity.Mobile;
 import server.poptato.user.domain.entity.User;
 import server.poptato.user.domain.repository.MobileRepository;
 import server.poptato.user.domain.repository.UserRepository;
+import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
 import server.poptato.user.status.MobileErrorStatus;
 import server.poptato.user.validator.UserValidator;
@@ -61,11 +62,11 @@ public class AuthService {
                     long userCount = userRepository.count();
                     eventPublisher.publishEvent(CreateUserEvent.from(userCount, newUser, request.mobileType().toString()));
 
-                    return createLoginResponse(newUser.getId(), true);
+                    return createLoginResponse(newUser.getId(), request.mobileType(), true);
                 }
                 updateImage(findUser.get(), userInfo);
                 saveFcmToken(findUser.get().getId(), request);
-                return createLoginResponse(findUser.get().getId(), false);
+                return createLoginResponse(findUser.get().getId(), request.mobileType(), false);
             });
         } catch (CustomException e) {
             if (e.getErrorCode().equals(LockErrorStatus._LOCK_ACQUISITION_FAILED)) {
@@ -83,7 +84,13 @@ public class AuthService {
      * @param request 로그인 요청 정보
      */
     private void saveFcmToken(Long userId, LoginRequestDto request) {
-        Optional<Mobile> existingMobile = mobileRepository.findByClientId(request.clientId());
+        Optional<Mobile> existingMobile;
+        if (request.mobileType() == MobileType.DESKTOP) {
+            existingMobile = mobileRepository.findByUserIdAndType(userId, request.mobileType());
+        } else {
+            existingMobile = mobileRepository.findByClientId(request.clientId());
+        }
+
         if (existingMobile.isPresent()) {
             return;
         }
@@ -149,8 +156,8 @@ public class AuthService {
      * @param isNewUser 신규 유저 여부
      * @return 로그인 응답 데이터
      */
-    private LoginResponseDto createLoginResponse(Long userId, boolean isNewUser) {
-        TokenPair tokenPair = jwtService.generateTokenPair(String.valueOf(userId));
+    private LoginResponseDto createLoginResponse(Long userId, MobileType mobileType, boolean isNewUser) {
+        TokenPair tokenPair = jwtService.generateTokenPair(String.valueOf(userId), mobileType);
         return LoginResponseDto.of(tokenPair.accessToken(), tokenPair.refreshToken(), isNewUser, userId);
     }
 
@@ -166,8 +173,12 @@ public class AuthService {
     */
     public void logout(final Long userId, FCMTokenRequestDto fcmTokenRequestDto) {
         userValidator.checkIsExistUser(userId);
-        mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
-        jwtService.deleteRefreshToken(String.valueOf(userId));
+        if (MobileType.DESKTOP == fcmTokenRequestDto.mobileType()) {
+            mobileRepository.deleteByUserIdAndType(userId, fcmTokenRequestDto.mobileType());
+        } else {
+            mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
+        }
+        jwtService.deleteRefreshToken(String.valueOf(userId), fcmTokenRequestDto.mobileType());
     }
 
     /**
@@ -177,13 +188,19 @@ public class AuthService {
      * @param reissueTokenRequestDto 토큰 갱신 요청 정보
      * @return 새로운 토큰 페어
      */
+    @Transactional
     public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto) {
-        final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken());
-
+        final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken(), reissueTokenRequestDto.mobileType());
         userValidator.checkIsExistUser(Long.parseLong(userId));
 
-        final TokenPair tokenPair = jwtService.generateTokenPair(userId);
-        jwtService.saveRefreshToken(userId, tokenPair.refreshToken());
+        if (reissueTokenRequestDto.mobileType() == MobileType.DESKTOP) {
+            refreshMobile(Long.parseLong(userId), reissueTokenRequestDto.mobileType());
+        } else {
+            refreshMobile(reissueTokenRequestDto.clientId());
+        }
+
+        final TokenPair tokenPair = jwtService.generateTokenPair(userId, reissueTokenRequestDto.mobileType());
+        jwtService.saveRefreshToken(userId, reissueTokenRequestDto.mobileType(), tokenPair.refreshToken());
 
         return tokenPair;
     }
@@ -195,11 +212,11 @@ public class AuthService {
      * @param refreshToken 검증할 리프레시 토큰
      * @throws RuntimeException 토큰이 유효하지 않을 경우 예외 발생
      */
-    private String extractUserIdAfterVerifyRefreshToken(String refreshToken) {
+    private String extractUserIdAfterVerifyRefreshToken(String refreshToken, MobileType mobileType) {
         try {
             jwtService.verifyRefreshToken(refreshToken);
             final String userId = jwtService.getUserIdInToken(refreshToken);
-            jwtService.compareRefreshToken(userId, refreshToken);
+            jwtService.compareRefreshToken(userId, mobileType, refreshToken);
 
             return userId;
         } catch (Exception e) {
@@ -213,14 +230,15 @@ public class AuthService {
      *
      * @param clientId fcm 토큰
      */
-    @Transactional
-    public void refreshFCMToken(String clientId) {
-        Optional<Mobile> existingMobile = mobileRepository.findByClientId(clientId);
-        if (existingMobile.isPresent()) {
-            Mobile mobile = existingMobile.get();
-            mobile.updateModifiedDate();
-            return;
-        }
-        throw new CustomException(MobileErrorStatus._NOT_EXIST_FCM_TOKEN);
+    private void refreshMobile(String clientId) {
+        Mobile existingMobile = mobileRepository.findByClientId(clientId)
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_EXIST_MOBILE));
+        existingMobile.updateModifiedDate();
+    }
+
+    private void refreshMobile(Long userId, MobileType mobileType) {
+        Mobile existingMobile = mobileRepository.findByUserIdAndType(userId, mobileType)
+                .orElseThrow(() -> new CustomException(MobileErrorStatus._NOT_EXIST_MOBILE));
+        existingMobile.updateModifiedDate();
     }
 }

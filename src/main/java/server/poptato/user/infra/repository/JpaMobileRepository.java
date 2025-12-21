@@ -9,17 +9,28 @@ import server.poptato.user.domain.entity.Mobile;
 import server.poptato.user.domain.repository.MobileRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-@Transactional
 public interface JpaMobileRepository extends MobileRepository, JpaRepository<Mobile, Long> {
 
     @Modifying
+    @Transactional
     void deleteByClientId(String clientId);
 
     @Modifying
+    @Transactional
     @Query("""
         DELETE FROM Mobile m
         WHERE m.modifyDate < :localDateTime
     """)
     void deleteOldTokens(@Param("localDateTime") LocalDateTime localDateTime);
+
+    @Query("""
+        SELECT m FROM Mobile m
+        WHERE m.userId = :userId
+            AND m.type <> 'DESKTOP'
+            AND m.clientId IS NOT NULL
+    """)
+    List<Mobile> findAllPushCapableByUserId(@Param("userId") Long userId);
+
 }
