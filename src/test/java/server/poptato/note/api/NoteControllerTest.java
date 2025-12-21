@@ -15,7 +15,6 @@ import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.configuration.ControllerTestConfig;
-import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
@@ -52,19 +51,16 @@ public class NoteControllerTest extends ControllerTestConfig {
     @DisplayName("[SCN-API-NOTE-CREATE] 새 노트를 생성한다.")
     public void createNote() throws Exception {
         // given
-        NoteCreateRequestDto request = new NoteCreateRequestDto("New Note", "new note");
         NoteCreateResponseDto response = new NoteCreateResponseDto(1L);
 
         Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
-        Mockito.when(noteService.createNote(anyLong(), any(NoteCreateRequestDto.class))).thenReturn(response);
+        Mockito.when(noteService.createNote(anyLong())).thenReturn(response);
 
-        String requestContent = objectMapper.writeValueAsString(request);
 
         // when
         ResultActions resultActions = this.mockMvc.perform(
                 RestDocumentationRequestBuilders.post("/notes")
                         .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
-                        .content(requestContent)
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
         );
@@ -83,12 +79,7 @@ public class NoteControllerTest extends ControllerTestConfig {
                                 ResourceSnippetParameters.builder()
                                         .tag("Note API")
                                         .description("새 노트를 생성한다.")
-                                        .requestSchema(Schema.schema("NoteCreateRequest"))
                                         .responseSchema(Schema.schema("NoteCreateResponse"))
-                                        .requestFields(
-                                                fieldWithPath("title").type(JsonFieldType.STRING).description("노트 제목"),
-                                                fieldWithPath("content").type(JsonFieldType.STRING).description("노트 내용")
-                                        )
                                         .responseFields(
                                                 fieldWithPath("isSuccess").type(JsonFieldType.BOOLEAN).description("성공 여부"),
                                                 fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
@@ -131,6 +122,7 @@ public class NoteControllerTest extends ControllerTestConfig {
                 .andExpect(jsonPath("$.result.notes[0].title").value("title1"))
                 .andExpect(jsonPath("$.result.notes[0].content").value("content1"))
                 .andExpect(jsonPath("$.result.notes[0].modifyDate").exists())
+                .andExpect(jsonPath("$.result.notes[0].modifyTime").exists())
                 // docs
                 .andDo(MockMvcRestDocumentationWrapper.document("notes/get-note-list",
                         preprocessRequest(prettyPrint()),
@@ -147,7 +139,8 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("result.notes[].noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
                                                 fieldWithPath("result.notes[].title").type(JsonFieldType.STRING).description("노트 제목(프리뷰)"),
                                                 fieldWithPath("result.notes[].content").type(JsonFieldType.STRING).description("노트 내용(프리뷰)"),
-                                                fieldWithPath("result.notes[].modifyDate").type(JsonFieldType.STRING).description("최근 변경 시각")
+                                                fieldWithPath("result.notes[].modifyDate").type(JsonFieldType.STRING).description("최근 변경 날짜"),
+                                                fieldWithPath("result.notes[].modifyTime").type(JsonFieldType.STRING).description("최근 변경 시간")
                                         )
                                         .responseSchema(Schema.schema("NoteSummaryListResponse"))
                                         .build()
@@ -159,7 +152,7 @@ public class NoteControllerTest extends ControllerTestConfig {
     @DisplayName("[SCN-API-NOTE-READ] 노트를 조회한다.")
     public void getNote() throws Exception {
         // given
-        NoteResponseDto response = new NoteResponseDto(1L, "title", "content", LocalDateTime.now());
+        NoteResponseDto response = new NoteResponseDto(1L, "title", "content", "2025-12-18", "16:34:00");
 
         Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
         Mockito.when(noteService.getNote(anyLong(),anyLong())).thenReturn(response);
@@ -195,8 +188,9 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
                                                 fieldWithPath("result.title").type(JsonFieldType.STRING).description("노트 제목"),
                                                 fieldWithPath("result.content").type(JsonFieldType.STRING).description("노트 내용"),
-                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 변경 시각")
-                                        )
+                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 변경 날짜"),
+                                                fieldWithPath("result.modifyTime").type(JsonFieldType.STRING).description("최근 변경 시간")
+                                                )
                                         .responseSchema(Schema.schema("NoteResponse"))
                                         .build()
                         )
@@ -214,8 +208,7 @@ public class NoteControllerTest extends ControllerTestConfig {
                 "updated content"
         );
 
-        LocalDateTime now = LocalDateTime.now();
-        NoteUpdateResponseDto responseDto = new NoteUpdateResponseDto(noteId, now);
+        NoteUpdateResponseDto responseDto = new NoteUpdateResponseDto(noteId, "2025-12-18", "16:34:00");
 
         Mockito.when(jwtService.extractUserIdFromToken(BEARER_TOKEN)).thenReturn(1L);
         Mockito.when(noteService.updateNote(anyLong(), anyLong(), any(NoteUpdateRequestDto.class)))
@@ -262,7 +255,8 @@ public class NoteControllerTest extends ControllerTestConfig {
                                                 fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
                                                 fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
                                                 fieldWithPath("result.noteId").type(JsonFieldType.NUMBER).description("노트 ID"),
-                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 수정 시각")
+                                                fieldWithPath("result.modifyDate").type(JsonFieldType.STRING).description("최근 변경 날짜"),
+                                                fieldWithPath("result.modifyTime").type(JsonFieldType.STRING).description("최근 변경 시간")
                                         )
                                         .build()
                         )

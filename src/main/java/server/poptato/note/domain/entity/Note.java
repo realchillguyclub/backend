@@ -28,9 +28,7 @@ public class Note extends BaseEntity {
     private Long userId;
 
     @Builder
-    public Note(String title, String content, Long userId) {
-        this.title = title;
-        this.content = content;
+    public Note(Long userId) {
         this.userId = userId;
     }
 

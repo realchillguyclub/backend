@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.global.response.ApiResponse;
 import server.poptato.global.response.status.SuccessStatus;
-import server.poptato.note.api.request.NoteCreateRequestDto;
 import server.poptato.note.api.request.NoteUpdateRequestDto;
 import server.poptato.note.application.NoteService;
 import server.poptato.note.application.response.NoteCreateResponseDto;
@@ -28,15 +27,13 @@ public class NoteController {
      * 사용자가 노트를 생성합니다.
      *
      * @param authorizationHeader 요청 헤더의 Authorization (Bearer 토큰)
-     * @param noteCreateRequestDto 노트 생성 요청 데이터
      * @return 성공 여부를 나타내는 응답
      */
     @PostMapping
     public ResponseEntity<ApiResponse<NoteCreateResponseDto>> createNote(
-            @RequestHeader("Authorization") String authorizationHeader,
-            @Valid @RequestBody NoteCreateRequestDto noteCreateRequestDto
+            @RequestHeader("Authorization") String authorizationHeader
     ) {
-        NoteCreateResponseDto responseDto = noteService.createNote(jwtService.extractUserIdFromToken(authorizationHeader), noteCreateRequestDto);
+        NoteCreateResponseDto responseDto = noteService.createNote(jwtService.extractUserIdFromToken(authorizationHeader));
         return ApiResponse.onSuccess(SuccessStatus._CREATED, responseDto);
     }
 
