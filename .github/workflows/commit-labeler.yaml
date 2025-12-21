@@ -27,6 +27,7 @@ jobs:
                 if (msg.includes("[style]")) labels.add("🌱 style");
                 if (msg.includes("[refactor]")) labels.add("🔄 refactor");
                 if (msg.includes("[refactor]")) labels.add("✅ test");
+                if (msg.includes("[pref]")) labels.add("⚡️ pref");
                 if (msg.includes("[chore]")) labels.add("⚒️ chore");
                 if (msg.includes("[hotfix]")) labels.add("🛟 hotfix");
                 if (msg.includes("[release]")) labels.add("💫 release");

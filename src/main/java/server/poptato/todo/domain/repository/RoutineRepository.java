@@ -13,5 +13,7 @@ public interface RoutineRepository {
 
     List<Routine> findAllByTodoId(Long todoId);
 
+    List<Routine> findAllByTodoIdIn(List<Long> todoIds);
+
 	List<RoutineCountProjection> countRoutinesByDay(Long userId);
 }

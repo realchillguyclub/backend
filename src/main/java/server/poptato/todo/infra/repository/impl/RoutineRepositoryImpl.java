@@ -31,7 +31,12 @@ public class RoutineRepositoryImpl implements RoutineRepository {
         return jpaRoutineRepository.findAllByTodoId(todoId);
     }
 
-	@Override
+    @Override
+    public List<Routine> findAllByTodoIdIn(List<Long> todoIds) {
+        return jpaRoutineRepository.findAllByTodoIdIn(todoIds);
+    }
+
+    @Override
 	public List<RoutineCountProjection> countRoutinesByDay(Long userId) {
 		return jpaRoutineRepository.countRoutinesByDay(userId);
 	}
