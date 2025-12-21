@@ -29,6 +29,6 @@ public record NoteResponseDto(
                 note.previewContent(),
                 TimeUtil.getDate(note.modifyDate()),
                 TimeUtil.getTime(note.modifyDate())
-                );
+		);
     }
 }
