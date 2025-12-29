@@ -49,3 +49,7 @@ out/
 
 .gitignore.swp
 /htmlReport/
+
+### Claude ###
+.claude
+CLAUDE.md
