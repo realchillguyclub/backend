@@ -1,25 +1,35 @@
 package server.poptato.infra.s3.service;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.*;
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import com.amazonaws.HttpMethod;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class S3Service {
 
     private static final int IMAGE_URL_PREFIX_LENGTH = 41;
-    private static final int EXPIRED_TIME = 3;
+    private static final int PRESIGNED_URL_EXPIRATION_MINUTES = 30;
     private final AmazonS3 amazonS3;
 
     @Value("${cloud.aws.s3.bucket}")
@@ -72,7 +82,7 @@ public class S3Service {
     }
 
     private String createFileNameWithGroup(String fileName, String groupName) {
-        return groupName + "-" + UUID.randomUUID().toString() + getFileExtension(fileName);
+        return groupName + "-" + UUID.randomUUID() + getFileExtension(fileName);
     }
 
     private String getImageUrlToKey(final String imageUrl) {
@@ -87,5 +97,17 @@ public class S3Service {
         if (!validExtensions.contains(fileExtension)) throw new IllegalArgumentException("Invalid file extension");
 
         return fileExtension;
+    }
+
+    public String generatePresignedUrl(String filePath) {
+        Date expiration = new Date();
+        expiration.setTime(expiration.getTime() + PRESIGNED_URL_EXPIRATION_MINUTES * 60 * 1000);
+
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, filePath)
+                .withMethod(HttpMethod.GET)
+                .withExpiration(expiration);
+
+        URL url = amazonS3.generatePresignedUrl(request);
+        return url.toString();
     }
 }
