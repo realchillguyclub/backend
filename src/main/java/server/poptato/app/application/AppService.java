@@ -1,15 +1,15 @@
 package server.poptato.app.application;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import server.poptato.app.api.request.SkipRequestDto;
+import server.poptato.app.application.event.AppUpdateLogEvent;
 import server.poptato.app.application.response.DownloadResponseDto;
 import server.poptato.app.application.response.VersionCheckResponseDto;
 import server.poptato.app.domain.entity.AppRelease;
-import server.poptato.app.domain.entity.AppUpdateLog;
 import server.poptato.app.domain.repository.AppReleaseRepository;
-import server.poptato.app.domain.repository.AppUpdateLogRepository;
 import server.poptato.app.domain.value.Platform;
 import server.poptato.app.domain.value.UpdateEventType;
 import server.poptato.app.status.AppErrorStatus;
@@ -21,7 +21,7 @@ import server.poptato.infra.s3.service.S3Service;
 public class AppService {
 
     private final AppReleaseRepository appReleaseRepository;
-    private final AppUpdateLogRepository appUpdateLogRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final S3Service s3Service;
 
     /**
@@ -34,7 +34,7 @@ public class AppService {
 
         boolean updateAvailable = activeRelease != null && !activeRelease.getVersion().equals(currentVersion);
 
-        saveUpdateLog(userId, UpdateEventType.VERSION_CHECK, currentVersion,
+        publishUpdateLogEvent(userId, UpdateEventType.VERSION_CHECK, currentVersion,
                 updateAvailable ? activeRelease.getVersion() : null, platform, updateAvailable);
 
         if (!updateAvailable) {
@@ -59,7 +59,7 @@ public class AppService {
             throw new CustomException(AppErrorStatus._PRESIGNED_URL_GENERATION_FAILED);
         }
 
-        saveUpdateLog(userId, UpdateEventType.DOWNLOADED, currentVersion,
+        publishUpdateLogEvent(userId, UpdateEventType.DOWNLOADED, currentVersion,
                 activeRelease.getVersion(), platform, true);
 
         return DownloadResponseDto.of(activeRelease, presignedUrl);
@@ -69,21 +69,16 @@ public class AppService {
      * 사용자가 업데이트를 스킵했을 때 로그를 기록한다.
      */
     public void skipUpdate(Long userId, SkipRequestDto request) {
-        saveUpdateLog(userId, UpdateEventType.UPDATE_SKIPPED, request.currentVersion(),
+        publishUpdateLogEvent(userId, UpdateEventType.UPDATE_SKIPPED, request.currentVersion(),
                 request.targetVersion(), request.platform(), true);
     }
 
-    private void saveUpdateLog(Long userId, UpdateEventType eventType, String currentVersion,
-                               String targetVersion, Platform platform, Boolean updateAvailable) {
-        AppUpdateLog log = AppUpdateLog.builder()
-                .userId(userId)
-                .eventType(eventType)
-                .currentVersion(currentVersion)
-                .targetVersion(targetVersion)
-                .platform(platform)
-                .updateAvailable(updateAvailable)
-                .build();
-
-        appUpdateLogRepository.save(log);
+    /**
+     * 업데이트 로그 이벤트를 비동기로 발행한다.
+     */
+    private void publishUpdateLogEvent(Long userId, UpdateEventType eventType, String currentVersion,
+                                       String targetVersion, Platform platform, Boolean updateAvailable) {
+        eventPublisher.publishEvent(AppUpdateLogEvent.of(userId, eventType, currentVersion,
+                targetVersion, platform, updateAvailable));
     }
 }

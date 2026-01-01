@@ -1,7 +1,6 @@
 package server.poptato.app.application;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.Optional;
@@ -15,14 +14,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.context.ApplicationEventPublisher;
 
 import server.poptato.app.api.request.SkipRequestDto;
+import server.poptato.app.application.event.AppUpdateLogEvent;
 import server.poptato.app.application.response.DownloadResponseDto;
 import server.poptato.app.application.response.VersionCheckResponseDto;
 import server.poptato.app.domain.entity.AppRelease;
-import server.poptato.app.domain.entity.AppUpdateLog;
 import server.poptato.app.domain.repository.AppReleaseRepository;
-import server.poptato.app.domain.repository.AppUpdateLogRepository;
 import server.poptato.app.domain.value.Platform;
 import server.poptato.app.domain.value.UpdateEventType;
 import server.poptato.app.status.AppErrorStatus;
@@ -36,13 +35,13 @@ public class AppServiceTest extends ServiceTestConfig {
     AppReleaseRepository appReleaseRepository;
 
     @Mock
-    AppUpdateLogRepository appUpdateLogRepository;
+    ApplicationEventPublisher eventPublisher;
 
     @Mock
     S3Service s3Service;
 
     @Captor
-    ArgumentCaptor<AppUpdateLog> logCaptor;
+    ArgumentCaptor<AppUpdateLogEvent> eventCaptor;
 
     @InjectMocks
     AppService appService;
@@ -75,11 +74,11 @@ public class AppServiceTest extends ServiceTestConfig {
             assertThat(response.latestVersion()).isEqualTo("1.2.0");
             assertThat(response.isMandatory()).isFalse();
 
-            verify(appUpdateLogRepository).save(logCaptor.capture());
-            AppUpdateLog log = logCaptor.getValue();
-            assertThat(log.getUserId()).isEqualTo(userId);
-            assertThat(log.getEventType()).isEqualTo(UpdateEventType.VERSION_CHECK);
-            assertThat(log.getUpdateAvailable()).isTrue();
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            AppUpdateLogEvent event = eventCaptor.getValue();
+            assertThat(event.userId()).isEqualTo(userId);
+            assertThat(event.eventType()).isEqualTo(UpdateEventType.VERSION_CHECK);
+            assertThat(event.updateAvailable()).isTrue();
         }
 
         @Test
@@ -103,8 +102,8 @@ public class AppServiceTest extends ServiceTestConfig {
             assertThat(response.currentVersion()).isEqualTo(currentVersion);
             assertThat(response.latestVersion()).isEqualTo(currentVersion);
 
-            verify(appUpdateLogRepository).save(logCaptor.capture());
-            assertThat(logCaptor.getValue().getUpdateAvailable()).isFalse();
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getValue().updateAvailable()).isFalse();
         }
 
         @Test
@@ -164,11 +163,11 @@ public class AppServiceTest extends ServiceTestConfig {
             appService.checkVersion(userId, currentVersion, Platform.MACOS);
 
             // then
-            verify(appUpdateLogRepository).save(logCaptor.capture());
-            AppUpdateLog log = logCaptor.getValue();
-            assertThat(log.getCurrentVersion()).isEqualTo("1.0.0");
-            assertThat(log.getTargetVersion()).isEqualTo("1.5.0");
-            assertThat(log.getPlatform()).isEqualTo(Platform.MACOS);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            AppUpdateLogEvent event = eventCaptor.getValue();
+            assertThat(event.currentVersion()).isEqualTo("1.0.0");
+            assertThat(event.targetVersion()).isEqualTo("1.5.0");
+            assertThat(event.platform()).isEqualTo(Platform.MACOS);
         }
     }
 
@@ -206,9 +205,9 @@ public class AppServiceTest extends ServiceTestConfig {
             assertThat(response.sha512()).isEqualTo("abc123");
             assertThat(response.size()).isEqualTo(85000000L);
 
-            verify(appUpdateLogRepository).save(logCaptor.capture());
-            AppUpdateLog log = logCaptor.getValue();
-            assertThat(log.getEventType()).isEqualTo(UpdateEventType.DOWNLOADED);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            AppUpdateLogEvent event = eventCaptor.getValue();
+            assertThat(event.eventType()).isEqualTo(UpdateEventType.DOWNLOADED);
         }
 
         @Test
@@ -244,13 +243,13 @@ public class AppServiceTest extends ServiceTestConfig {
             appService.skipUpdate(userId, request);
 
             // then
-            verify(appUpdateLogRepository).save(logCaptor.capture());
-            AppUpdateLog log = logCaptor.getValue();
-            assertThat(log.getUserId()).isEqualTo(userId);
-            assertThat(log.getEventType()).isEqualTo(UpdateEventType.UPDATE_SKIPPED);
-            assertThat(log.getCurrentVersion()).isEqualTo("1.0.0");
-            assertThat(log.getTargetVersion()).isEqualTo("1.2.0");
-            assertThat(log.getPlatform()).isEqualTo(Platform.MACOS);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            AppUpdateLogEvent event = eventCaptor.getValue();
+            assertThat(event.userId()).isEqualTo(userId);
+            assertThat(event.eventType()).isEqualTo(UpdateEventType.UPDATE_SKIPPED);
+            assertThat(event.currentVersion()).isEqualTo("1.0.0");
+            assertThat(event.targetVersion()).isEqualTo("1.2.0");
+            assertThat(event.platform()).isEqualTo(Platform.MACOS);
         }
     }
 }
