@@ -33,9 +33,9 @@ public class AppService {
                 .orElse(null);
 
         boolean updateAvailable = activeRelease != null && !activeRelease.getVersion().equals(currentVersion);
-
-        publishUpdateLogEvent(userId, UpdateEventType.VERSION_CHECK, currentVersion,
-                updateAvailable ? activeRelease.getVersion() : null, platform, updateAvailable);
+		
+		eventPublisher.publishEvent(AppUpdateLogEvent.of(userId, UpdateEventType.VERSION_CHECK, currentVersion,
+                updateAvailable ? activeRelease.getVersion() : null, platform, updateAvailable));
 
         if (!updateAvailable) {
             return VersionCheckResponseDto.noUpdate(currentVersion);
@@ -58,9 +58,9 @@ public class AppService {
         } catch (Exception e) {
             throw new CustomException(AppErrorStatus._PRESIGNED_URL_GENERATION_FAILED);
         }
-
-        publishUpdateLogEvent(userId, UpdateEventType.DOWNLOADED, currentVersion,
-                activeRelease.getVersion(), platform, true);
+		
+		eventPublisher.publishEvent(AppUpdateLogEvent.of(userId, UpdateEventType.DOWNLOADED, currentVersion,
+                activeRelease.getVersion(), platform, true));
 
         return DownloadResponseDto.of(activeRelease, presignedUrl);
     }
@@ -69,16 +69,7 @@ public class AppService {
      * 사용자가 업데이트를 스킵했을 때 로그를 기록한다.
      */
     public void skipUpdate(Long userId, SkipRequestDto request) {
-        publishUpdateLogEvent(userId, UpdateEventType.UPDATE_SKIPPED, request.currentVersion(),
-                request.targetVersion(), request.platform(), true);
-    }
-
-    /**
-     * 업데이트 로그 이벤트를 비동기로 발행한다.
-     */
-    private void publishUpdateLogEvent(Long userId, UpdateEventType eventType, String currentVersion,
-                                       String targetVersion, Platform platform, Boolean updateAvailable) {
-        eventPublisher.publishEvent(AppUpdateLogEvent.of(userId, eventType, currentVersion,
-                targetVersion, platform, updateAvailable));
+		eventPublisher.publishEvent(AppUpdateLogEvent.of(userId, UpdateEventType.UPDATE_SKIPPED, request.currentVersion(),
+                request.targetVersion(), request.platform(), true));
     }
 }
