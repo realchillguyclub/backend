@@ -146,7 +146,7 @@ def serverUrl = "https://prev-illdan.store"
 
 openapi3 {
     server = serverUrl
-    title = "Legacy Illdan API Documentation"
+    title = "Illdan API Documentation"
     description = "Spring REST Docs with Swagger UI."
     version = "1.0.0"
     outputFileNamePrefix = 'open-api-3.0.1'

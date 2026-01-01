@@ -1,6 +1,7 @@
 package server.poptato.global.config;
 
 import java.io.InputStream;
+import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import server.poptato.global.exception.CustomException;
 import server.poptato.global.response.status.ErrorStatus;
 
@@ -32,7 +34,11 @@ public class SwaggerConfig {
 					.name("Sangho Han")
 					.url("https://github.com/bbbang105")
 					.email("hchsa77@gmail.com"))
-			);
+			).servers(List.of(
+				new Server().url("http://localhost:8085").description("로컬 서버"),
+				new Server().url("https://prev-illdan.store").description("테스트 서버"),
+				new Server().url("https://prev-illdan-prod.store").description("배포 서버")
+			));
 		try {
 			// ✅ Swagger 전용 ObjectMapper 사용
 			ObjectMapper swaggerMapper = Json.mapper();
