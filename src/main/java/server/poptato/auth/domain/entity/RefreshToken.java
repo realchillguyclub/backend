@@ -40,9 +40,9 @@ public class RefreshToken extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 128)
     private String jti;
-
+	
     @Enumerated(EnumType.STRING)
-    @Column(name = "mobile_type", nullable = false)
+    @Column(name = "mobile_type", nullable = false, columnDefinition = "VARCHAR(20)")
     private MobileType mobileType;
 
     @Column(name = "client_id", length = 256)
@@ -58,7 +58,7 @@ public class RefreshToken extends BaseEntity {
     private String refreshToken;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(20)")
     private TokenStatus status;
 
     @Column(name = "issued_at", nullable = false)

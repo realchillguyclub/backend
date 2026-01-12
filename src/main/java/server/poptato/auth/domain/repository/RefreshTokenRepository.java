@@ -18,5 +18,5 @@ public interface RefreshTokenRepository {
 
     int updateExpiredTokens(LocalDateTime now);
 
-    int deleteOldInactiveTokens(LocalDateTime threshold);
+    int softDeleteOldInactiveTokens(LocalDateTime threshold);
 }
