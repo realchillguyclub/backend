@@ -1,8 +1,11 @@
 package server.poptato.auth.api;
 
-import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
-import com.epages.restdocs.apispec.ResourceSnippetParameters;
-import com.epages.restdocs.apispec.Schema;
+import static com.epages.restdocs.apispec.ResourceDocumentation.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
+import static org.springframework.restdocs.payload.PayloadDocumentation.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -13,6 +16,11 @@ import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
+
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
+import com.epages.restdocs.apispec.Schema;
+
 import server.poptato.auth.api.request.FCMTokenRequestDto;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.api.request.ReissueTokenRequestDto;
@@ -21,15 +29,9 @@ import server.poptato.auth.application.service.AuthService;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.configuration.ControllerTestConfig;
 import server.poptato.global.dto.TokenPair;
+import server.poptato.global.util.ClientInfoExtractor;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
-
-import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
-import static org.mockito.ArgumentMatchers.any;
-import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
 public class AuthControllerTest extends ControllerTestConfig {
@@ -40,12 +42,17 @@ public class AuthControllerTest extends ControllerTestConfig {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private ClientInfoExtractor clientInfoExtractor;
+
     @Test
     @DisplayName("사용자가 로그인한다.")
     public void login() throws Exception {
         // given
+        Mockito.when(clientInfoExtractor.extractClientIp(any())).thenReturn("127.0.0.1");
+        Mockito.when(clientInfoExtractor.extractUserAgent(any())).thenReturn("TestAgent/1.0");
         LoginResponseDto response = LoginResponseDto.of("access-token", "refresh-token", true, 1L);
-        Mockito.when(authService.login(any(LoginRequestDto.class))).thenReturn(response);
+        Mockito.when(authService.login(any(LoginRequestDto.class), anyString(), anyString())).thenReturn(response);
 
         LoginRequestDto request = new LoginRequestDto(
                 SocialType.APPLE,
@@ -166,8 +173,10 @@ public class AuthControllerTest extends ControllerTestConfig {
     @DisplayName("토큰을 갱신한다.")
     public void refresh() throws Exception {
         // given
+        Mockito.when(clientInfoExtractor.extractClientIp(any())).thenReturn("127.0.0.1");
+        Mockito.when(clientInfoExtractor.extractUserAgent(any())).thenReturn("TestAgent/1.0");
         TokenPair response = new TokenPair("new-access-token", "new-refresh-token");
-        Mockito.when(authService.refresh(any(ReissueTokenRequestDto.class))).thenReturn(response);
+        Mockito.when(authService.refresh(any(ReissueTokenRequestDto.class), anyString(), anyString())).thenReturn(response);
 
         ReissueTokenRequestDto request = new ReissueTokenRequestDto("access-token", "refresh-token", MobileType.ANDROID, "fcm-token");
         String requestContent = objectMapper.writeValueAsString(request);

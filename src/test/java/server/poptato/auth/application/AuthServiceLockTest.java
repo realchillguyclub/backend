@@ -1,5 +1,20 @@
 package server.poptato.auth.application;
 
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,14 +25,13 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
+
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.service.AuthService;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.configuration.RedisTestConfig;
-
-
 import server.poptato.global.dto.TokenPair;
 import server.poptato.global.exception.CustomException;
 import server.poptato.infra.lock.DistributedLockFacade;
@@ -32,15 +46,6 @@ import server.poptato.user.domain.repository.UserRepository;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
 import server.poptato.user.validator.UserValidator;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.*;
-import java.util.stream.IntStream;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 @Import({LettuceLockRepository.class, DistributedLockFacade.class})
 class AuthServiceLockTest extends RedisTestConfig {
@@ -116,7 +121,7 @@ class AuthServiceLockTest extends RedisTestConfig {
         when(savedUser.getSocialType()).thenReturn(SocialType.KAKAO);
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(userRepository.count()).thenReturn(1L);
-        when(jwtService.generateTokenPair(anyString(), any())).thenReturn(tokenPair);
+        when(jwtService.generateTokenPair(any(Long.class), any(), any(), any(), any())).thenReturn(tokenPair);
 
         // when
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
@@ -125,7 +130,7 @@ class AuthServiceLockTest extends RedisTestConfig {
         List<Callable<LoginResponseDto>> tasks = IntStream.range(0, threadCount)
                 .mapToObj(i -> (Callable<LoginResponseDto>) () -> {
                     barrier.await(2, TimeUnit.SECONDS);
-                    return authService.login(requestDto);
+                    return authService.login(requestDto, "127.0.0.1", "TestAgent/1.0");
                 }).toList();
 
         List<Future<LoginResponseDto>> futures = pool.invokeAll(tasks, 10, TimeUnit.SECONDS);

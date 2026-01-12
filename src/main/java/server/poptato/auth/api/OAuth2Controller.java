@@ -1,9 +1,16 @@
 package server.poptato.auth.api;
 
+import java.util.Optional;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import server.poptato.auth.api.view.OAuthCallbackHtml;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
@@ -12,7 +19,7 @@ import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.response.ApiResponse;
 import server.poptato.global.response.status.SuccessStatus;
-import java.util.Optional;
+import server.poptato.global.util.ClientInfoExtractor;
 
 @Slf4j
 @RestController
@@ -21,6 +28,7 @@ import java.util.Optional;
 public class OAuth2Controller {
 
     private final OAuth2LoginService oAuth2LoginService;
+    private final ClientInfoExtractor clientInfoExtractor;
 
     /**
      * 인가 시작 엔드포인트: state/PKCE를 저장하고 카카오 authorize URL로 302 한다.
@@ -67,8 +75,14 @@ public class OAuth2Controller {
      *      2) 로그인 결과로 액세스 토큰, 리프레시 토큰, 유저 ID, 신규 유저 여부를 포함한 응답
      */
     @GetMapping("/kakao/desktop/poll")
-    public ResponseEntity<ApiResponse<LoginResponseDto>> poll(@RequestParam String state) {
-        Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state);
+    public ResponseEntity<ApiResponse<LoginResponseDto>> poll(
+            @RequestParam String state,
+            HttpServletRequest request
+    ) {
+        String clientIp = clientInfoExtractor.extractClientIp(request);
+        String userAgent = clientInfoExtractor.extractUserAgent(request);
+
+        Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state, clientIp, userAgent);
 
         return result.map(loginResponseDto ->
                 ApiResponse.onSuccess(SuccessStatus._OK, loginResponseDto))

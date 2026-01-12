@@ -1,11 +1,16 @@
 package server.poptato.auth.application.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
@@ -19,10 +24,6 @@ import server.poptato.infra.oauth.state.OAuthState;
 import server.poptato.infra.oauth.state.OAuthStateRepository;
 import server.poptato.infra.oauth.state.PKCEUtils;
 import server.poptato.user.domain.value.MobileType;
-
-import java.time.Duration;
-import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -160,9 +161,13 @@ public class OAuth2LoginService {
      * 4) JWT(access/refresh) + userId + isNewUser 가 포함된 LoginResponseDto 반환
      *
      * - JWT 생성 및 refreshToken 저장은 기존 로직 AuthService.login()으로 처리한다.
+     *
+     * @param state     OAuth state 토큰
+     * @param clientIp  클라이언트 IP
+     * @param userAgent User-Agent
      */
     @Transactional
-    public Optional<LoginResponseDto> pollDesktopLogin(String state) {
+    public Optional<LoginResponseDto> pollDesktopLogin(String state, String clientIp, String userAgent) {
         Optional<PendingLogin> pendingLoginOptional = desktopPendingLoginRepository.find(state);
 
         if (pendingLoginOptional.isEmpty()) {
@@ -182,7 +187,7 @@ public class OAuth2LoginService {
                 null
         );
 
-        LoginResponseDto loginResponse = authService.login(requestDto);
+        LoginResponseDto loginResponse = authService.login(requestDto, clientIp, userAgent);
 
         return Optional.of(loginResponse);
     }
