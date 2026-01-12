@@ -1,21 +1,25 @@
 package server.poptato.auth.application.service;
 
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 import server.poptato.auth.api.request.FCMTokenRequestDto;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.api.request.ReissueTokenRequestDto;
 import server.poptato.auth.application.response.LoginResponseDto;
+import server.poptato.auth.domain.entity.RefreshToken;
 import server.poptato.auth.status.AuthErrorStatus;
+import server.poptato.global.dto.TokenPair;
+import server.poptato.global.exception.CustomException;
 import server.poptato.infra.lock.DistributedLockFacade;
+import server.poptato.infra.lock.status.LockErrorStatus;
 import server.poptato.infra.oauth.SocialService;
 import server.poptato.infra.oauth.SocialServiceProvider;
 import server.poptato.infra.oauth.SocialUserInfo;
-import server.poptato.global.dto.TokenPair;
-import server.poptato.global.exception.CustomException;
-import server.poptato.infra.lock.status.LockErrorStatus;
 import server.poptato.user.application.event.CreateUserEvent;
 import server.poptato.user.domain.entity.Mobile;
 import server.poptato.user.domain.entity.User;
@@ -25,8 +29,6 @@ import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
 import server.poptato.user.status.MobileErrorStatus;
 import server.poptato.user.validator.UserValidator;
-
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -44,11 +46,13 @@ public class AuthService {
      * 소셜 인증 정보를 기반으로 로그인 처리를 수행하며, 신규 유저일 경우 데이터를 저장합니다.
      * 또한, FCM 토큰을 저장하거나 업데이트합니다.
      *
-     * @param request 사용자의 로그인 요청 정보 (소셜 타입, 액세스 토큰 등)
+     * @param request   사용자의 로그인 요청 정보 (소셜 타입, 액세스 토큰 등)
+     * @param clientIp  클라이언트 IP 주소
+     * @param userAgent User-Agent
      * @return 로그인 결과로 생성된 액세스 토큰, 리프레시 토큰, 유저 ID, 신규 유저 여부
      */
     @Transactional
-    public LoginResponseDto login(final LoginRequestDto request) {
+    public LoginResponseDto login(final LoginRequestDto request, final String clientIp, final String userAgent) {
         SocialService socialService = socialServiceProvider.getSocialService(request.socialType());
         SocialUserInfo userInfo = socialService.getUserData(request);
 
@@ -62,11 +66,11 @@ public class AuthService {
                     long userCount = userRepository.count();
                     eventPublisher.publishEvent(CreateUserEvent.from(userCount, newUser, request.mobileType().toString()));
 
-                    return createLoginResponse(newUser.getId(), request.mobileType(), true);
+                    return createLoginResponse(newUser.getId(), request, clientIp, userAgent, true);
                 }
                 updateImage(findUser.get(), userInfo);
                 saveFcmToken(findUser.get().getId(), request);
-                return createLoginResponse(findUser.get().getId(), request.mobileType(), false);
+                return createLoginResponse(findUser.get().getId(), request, clientIp, userAgent, false);
             });
         } catch (CustomException e) {
             if (e.getErrorCode().equals(LockErrorStatus._LOCK_ACQUISITION_FAILED)) {
@@ -80,7 +84,7 @@ public class AuthService {
      * FCM 토큰을 저장하는 메서드.
      * FCM 토큰 저장한다.
      *
-     * @param userId 유저 ID
+     * @param userId  유저 ID
      * @param request 로그인 요청 정보
      */
     private void saveFcmToken(Long userId, LoginRequestDto request) {
@@ -104,7 +108,7 @@ public class AuthService {
      * - Apple 로그인인 경우, name 값이 없으면 예외 발생 (Apple은 최초 로그인 시에만 name 제공).
      * - 유저 정보를 생성하고 데이터를 저장.
      *
-     * @param request 로그인 요청 정보 (프론트에서 받은 name, email 포함)
+     * @param request  로그인 요청 정보 (프론트에서 받은 name, email 포함)
      * @param userInfo 소셜 유저 정보 (sub 값 포함)
      * @return 생성된 유저 객체
      * @throws CustomException Apple 로그인인데 name 값이 없는 경우 예외 발생
@@ -138,7 +142,7 @@ public class AuthService {
      * - 기존 유저의 프로필 이미지가 변경된 경우 업데이트함.
      *
      * @param existingUser 기존 유저 객체
-     * @param userInfo 소셜 유저 정보 (imageUrl 포함)
+     * @param userInfo     소셜 유저 정보 (imageUrl 포함)
      */
     private void updateImage(User existingUser, SocialUserInfo userInfo) {
         String imageUrl = getHttpsUrl(userInfo.imageUrl());
@@ -152,25 +156,29 @@ public class AuthService {
      * 로그인 응답 데이터 생성 메서드.
      * 유저 ID와 신규 유저 여부를 기반으로 토큰 페어와 함께 응답 데이터를 생성합니다.
      *
-     * @param userId 유저 ID
+     * @param userId    유저 ID
+     * @param request   로그인 요청 정보
+     * @param clientIp  클라이언트 IP
+     * @param userAgent User-Agent
      * @param isNewUser 신규 유저 여부
      * @return 로그인 응답 데이터
      */
-    private LoginResponseDto createLoginResponse(Long userId, MobileType mobileType, boolean isNewUser) {
-        TokenPair tokenPair = jwtService.generateTokenPair(String.valueOf(userId), mobileType);
+    private LoginResponseDto createLoginResponse(Long userId, LoginRequestDto request,
+                                                 String clientIp, String userAgent, boolean isNewUser) {
+        TokenPair tokenPair = jwtService.generateTokenPair(
+                userId, request.mobileType(), request.clientId(), clientIp, userAgent
+        );
         return LoginResponseDto.of(tokenPair.accessToken(), tokenPair.refreshToken(), isNewUser, userId);
     }
 
     /**
      * 로그아웃 처리 메서드.
-     * 유저의 리프레시 토큰을 삭제하여 로그아웃을 처리합니다.
+     * 유저의 리프레시 토큰을 폐기하고 FCM 토큰을 삭제하여 로그아웃을 처리합니다.
      *
-     * @param userId 로그아웃할 유저 ID
+     * @param userId             로그아웃할 유저 ID
+     * @param fcmTokenRequestDto FCM 토큰 요청 정보
      */
-    /*
-    추후 Redis 연산 분리 후, 트랜잭셔널 적용 예정
     @Transactional
-    */
     public void logout(final Long userId, FCMTokenRequestDto fcmTokenRequestDto) {
         userValidator.checkIsExistUser(userId);
         if (MobileType.DESKTOP == fcmTokenRequestDto.mobileType()) {
@@ -178,50 +186,35 @@ public class AuthService {
         } else {
             mobileRepository.deleteByClientId(fcmTokenRequestDto.clientId());
         }
-        jwtService.deleteRefreshToken(String.valueOf(userId), fcmTokenRequestDto.mobileType());
+        jwtService.revokeRefreshToken(userId, fcmTokenRequestDto.mobileType());
     }
 
     /**
-     * 토큰 갱신 메서드.
-     * 유효한 리프레시 토큰을 기반으로 새로운 토큰 페어를 생성하고 저장합니다.
+     * 토큰 갱신 메서드 (Token Rotation 적용).
+     * 유효한 리프레시 토큰을 기반으로 기존 토큰을 ROTATED 상태로 변경하고 새로운 토큰 페어를 생성합니다.
      *
      * @param reissueTokenRequestDto 토큰 갱신 요청 정보
+     * @param clientIp               클라이언트 IP
+     * @param userAgent              User-Agent
      * @return 새로운 토큰 페어
      */
     @Transactional
-    public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto) {
-        final String userId = extractUserIdAfterVerifyRefreshToken(reissueTokenRequestDto.refreshToken(), reissueTokenRequestDto.mobileType());
-        userValidator.checkIsExistUser(Long.parseLong(userId));
+    public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto,
+                             final String clientIp, final String userAgent) {
+        jwtService.verifyRefreshToken(reissueTokenRequestDto.refreshToken());
+
+        final String jti = jwtService.getJtiFromToken(reissueTokenRequestDto.refreshToken());
+        final RefreshToken storedToken = jwtService.validateAndGetRefreshToken(jti, reissueTokenRequestDto.refreshToken());
+
+        userValidator.checkIsExistUser(storedToken.getUserId());
 
         if (reissueTokenRequestDto.mobileType() == MobileType.DESKTOP) {
-            refreshMobile(Long.parseLong(userId), reissueTokenRequestDto.mobileType());
+            refreshMobile(storedToken.getUserId(), reissueTokenRequestDto.mobileType());
         } else {
             refreshMobile(reissueTokenRequestDto.clientId());
         }
 
-        final TokenPair tokenPair = jwtService.generateTokenPair(userId, reissueTokenRequestDto.mobileType());
-        jwtService.saveRefreshToken(userId, reissueTokenRequestDto.mobileType(), tokenPair.refreshToken());
-
-        return tokenPair;
-    }
-
-    /**
-     * 리프레시 토큰 검증 메서드.
-     * 토큰의 유효성을 확인하고 저장된 토큰과 비교합니다.
-     *
-     * @param refreshToken 검증할 리프레시 토큰
-     * @throws RuntimeException 토큰이 유효하지 않을 경우 예외 발생
-     */
-    private String extractUserIdAfterVerifyRefreshToken(String refreshToken, MobileType mobileType) {
-        try {
-            jwtService.verifyRefreshToken(refreshToken);
-            final String userId = jwtService.getUserIdInToken(refreshToken);
-            jwtService.compareRefreshToken(userId, mobileType, refreshToken);
-
-            return userId;
-        } catch (Exception e) {
-            throw e;
-        }
+        return jwtService.rotateToken(storedToken, clientIp, userAgent);
     }
 
     /**

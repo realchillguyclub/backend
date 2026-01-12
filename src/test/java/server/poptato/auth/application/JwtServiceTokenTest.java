@@ -1,22 +1,27 @@
 package server.poptato.auth.application;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Header;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.junit.jupiter.api.*;
-import org.mockito.InjectMocks;
-import org.springframework.test.util.ReflectionTestUtils;
-import server.poptato.auth.application.service.JwtService;
-import server.poptato.auth.status.AuthErrorStatus;
-import server.poptato.configuration.ServiceTestConfig;
-import server.poptato.global.exception.CustomException;
+import static org.assertj.core.api.Assertions.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Date;
 
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.mockito.InjectMocks;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import io.jsonwebtoken.Header;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import server.poptato.auth.application.service.JwtService;
+import server.poptato.auth.status.AuthErrorStatus;
+import server.poptato.configuration.ServiceTestConfig;
+import server.poptato.global.exception.CustomException;
 
 class JwtServiceTokenTest extends ServiceTestConfig {
 
@@ -27,6 +32,7 @@ class JwtServiceTokenTest extends ServiceTestConfig {
     private static final String OTHER_RAW_SECRET = "another-different-test-secret-32-bytes";
     private static final String BASE64_SECRET = Base64.getEncoder().encodeToString(RAW_SECRET.getBytes(StandardCharsets.UTF_8));
     private static final String OTHER_BASE64_SECRET = Base64.getEncoder().encodeToString(OTHER_RAW_SECRET.getBytes(StandardCharsets.UTF_8));
+    private static final String ISS = "ILLDAN_API_SERVER";
 
     private static String bearer(String token) {
         return "Bearer " + token;
@@ -36,15 +42,14 @@ class JwtServiceTokenTest extends ServiceTestConfig {
         Date now = new Date();
         Date exp = new Date(now.getTime()
                 + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis());
-        Claims c = Jwts.claims()
-                .setSubject("ACCESS_TOKEN")
-                .setIssuedAt(now)
-                .setExpiration(exp);
-        c.put("USER_ID", userId);
 
         return Jwts.builder()
                 .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-                .setClaims(c)
+                .setIssuer(ISS)
+                .setSubject("ACCESS_TOKEN")
+                .setIssuedAt(now)
+                .setExpiration(exp)
+                .claim("USER_ID", userId)
                 .signWith(Keys.hmacShaKeyFor(base64Secret.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
@@ -52,15 +57,14 @@ class JwtServiceTokenTest extends ServiceTestConfig {
     private static String expiredToken(String subject, String userId, String base64Secret) {
         long now = System.currentTimeMillis();
         Date past = new Date(now - 1_000L);
-        Claims c = Jwts.claims()
-                .setSubject(subject)
-                .setIssuedAt(new Date(past.getTime() - 1_000L))
-                .setExpiration(past);
-        c.put("USER_ID", userId);
 
         return Jwts.builder()
                 .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-                .setClaims(c)
+                .setIssuer(ISS)
+                .setSubject(subject)
+                .setIssuedAt(new Date(past.getTime() - 1_000L))
+                .setExpiration(past)
+                .claim("USER_ID", userId)
                 .signWith(Keys.hmacShaKeyFor(base64Secret.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
@@ -69,15 +73,14 @@ class JwtServiceTokenTest extends ServiceTestConfig {
         Date now = new Date();
         Date exp = new Date(now.getTime()
                 + JwtService.ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis());
-        Claims c = Jwts.claims()
-                .setSubject(subject)
-                .setIssuedAt(now)
-                .setExpiration(exp);
-        c.put("USER_ID", userId);
 
         return Jwts.builder()
                 .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-                .setClaims(c)
+                .setIssuer(ISS)
+                .setSubject(subject)
+                .setIssuedAt(now)
+                .setExpiration(exp)
+                .claim("USER_ID", userId)
                 .signWith(Keys.hmacShaKeyFor(otherBase64Secret.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
@@ -107,17 +110,19 @@ class JwtServiceTokenTest extends ServiceTestConfig {
         }
 
         @Test
-        @DisplayName("[TC-CREATE-TOKEN-002] Refresh 토큰 생성/검증 통과 후 userId를 정상적으로 추출한다")
+        @DisplayName("[TC-CREATE-TOKEN-002] Refresh 토큰 생성/검증 통과 후 userId와 jti를 정상적으로 추출한다")
         void refreshToken_create_verify_parse_userId() {
             // given
             String userId = "123";
+            String jti = "test-jti-uuid";
 
             // when
-            String refreshToken = jwtService.createRefreshToken(userId);
+            String refreshToken = jwtService.createRefreshToken(userId, jti);
 
             // then
             assertThatCode(() -> jwtService.verifyRefreshToken(refreshToken)).doesNotThrowAnyException();
             assertThat(jwtService.getUserIdInToken(refreshToken)).isEqualTo(userId);
+            assertThat(jwtService.getJtiFromToken(refreshToken)).isEqualTo(jti);
         }
     }
 
