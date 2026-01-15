@@ -34,7 +34,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: 🔨 프로젝트 빌드
-        run: ./gradlew clean build -x test
+        run: ./gradlew clean build
 
       - name: 🏗️ Docker Buildx 설정
         uses: docker/setup-buildx-action@v3
