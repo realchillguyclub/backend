@@ -2,6 +2,7 @@ package server.poptato.auth.application.service;
 
 import java.util.Optional;
 
+import io.jsonwebtoken.Claims;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -201,9 +202,9 @@ public class AuthService {
     @Transactional
     public TokenPair refresh(final ReissueTokenRequestDto reissueTokenRequestDto,
                              final String clientIp, final String userAgent) {
-        jwtService.verifyRefreshToken(reissueTokenRequestDto.refreshToken());
+        Claims claims = jwtService.verifyRefreshToken(reissueTokenRequestDto.refreshToken());
 
-        final String jti = jwtService.getJtiFromToken(reissueTokenRequestDto.refreshToken());
+        final String jti = claims.getId();
         final RefreshToken storedToken = jwtService.validateAndGetRefreshToken(jti, reissueTokenRequestDto.refreshToken());
 
         userValidator.checkIsExistUser(storedToken.getUserId());
