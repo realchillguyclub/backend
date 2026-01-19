@@ -237,22 +237,29 @@ public class JwtService {
     /**
      * Token Rotation을 수행합니다.
      * 기존 토큰을 ROTATED 상태로 변경하고 새 토큰을 생성합니다.
+     * 원자적 업데이트를 사용하여 동시 요청 시 race condition을 방지합니다.
      *
      * @param oldToken    기존 RefreshToken 엔티티
      * @param userIp      클라이언트 IP
      * @param userAgent   User-Agent
      * @return 새로운 토큰 페어
+     * @throws CustomException 토큰이 이미 사용된 경우 (동시 요청으로 인한 race condition)
      */
     @Transactional
     public TokenPair rotateToken(final RefreshToken oldToken, final String userIp, final String userAgent) {
-        oldToken.markAsRotated(userIp);
-        refreshTokenRepository.save(oldToken);
+        LocalDateTime now = LocalDateTime.now();
+
+        // 원자적 업데이트: ACTIVE 상태인 경우에만 ROTATED로 변경
+        int updated = refreshTokenRepository.markAsRotatedIfActive(oldToken.getId(), now, userIp);
+        if (updated == 0) {
+            // 이미 다른 요청에서 토큰을 rotate 했음 (race condition)
+            throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
+        }
 
         final String accessToken = createAccessToken(String.valueOf(oldToken.getUserId()));
         final String newJti = UUID.randomUUID().toString();
         final String newRefreshToken = createRefreshToken(String.valueOf(oldToken.getUserId()), newJti);
 
-        LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiryAt = now.plus(REFRESH_TOKEN_EXPIRATION_DAYS);
 
         RefreshToken newToken = oldToken.rotate(newJti, newRefreshToken, now, expiryAt, userIp, userAgent);

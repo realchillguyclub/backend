@@ -67,4 +67,18 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
           AND r.status IN ('ACTIVE', 'ROTATED')
     """)
     void revokeAllByFamilyId(@Param("familyId") String familyId);
+
+    @Override
+    @Modifying
+    @Query("""
+        UPDATE RefreshToken r
+        SET r.status = 'ROTATED',
+            r.lastUsedAt = :lastUsedAt,
+            r.lastUsedIp = :lastUsedIp
+        WHERE r.id = :tokenId
+          AND r.status = 'ACTIVE'
+    """)
+    int markAsRotatedIfActive(@Param("tokenId") Long tokenId,
+                              @Param("lastUsedAt") LocalDateTime lastUsedAt,
+                              @Param("lastUsedIp") String lastUsedIp);
 }
