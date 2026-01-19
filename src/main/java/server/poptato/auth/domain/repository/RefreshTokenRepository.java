@@ -19,4 +19,6 @@ public interface RefreshTokenRepository {
     int updateExpiredTokens(LocalDateTime now);
 
     int hardDeleteOldInactiveTokens(LocalDateTime threshold);
+
+    void revokeAllByFamilyId(String familyId);
 }

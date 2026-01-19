@@ -57,4 +57,14 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
           AND r.modifyDate < :threshold
     """)
     int hardDeleteOldInactiveTokens(@Param("threshold") LocalDateTime threshold);
+
+    @Override
+    @Modifying
+    @Query("""
+        UPDATE RefreshToken r
+        SET r.status = 'REVOKED'
+        WHERE r.familyId = :familyId
+          AND r.status IN ('ACTIVE', 'ROTATED')
+    """)
+    void revokeAllByFamilyId(@Param("familyId") String familyId);
 }

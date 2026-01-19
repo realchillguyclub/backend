@@ -32,8 +32,8 @@ public class RefreshToken extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "parent_id")
-    private Long parentId;
+    @Column(name = "family_id", nullable = false, length = 36)
+    private String familyId;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -77,10 +77,10 @@ public class RefreshToken extends BaseEntity {
     private int reissueCount;
 
     @Builder
-    public RefreshToken(Long parentId, Long userId, String jti, MobileType mobileType,
+    public RefreshToken(String familyId, Long userId, String jti, MobileType mobileType,
                         String clientId, String userAgent, String userIp, String tokenValue,
                         LocalDateTime issuedAt, LocalDateTime expiryAt, int reissueCount) {
-        this.parentId = parentId;
+        this.familyId = familyId;
         this.userId = userId;
         this.jti = jti;
         this.mobileType = mobileType;
@@ -102,6 +102,7 @@ public class RefreshToken extends BaseEntity {
                                       LocalDateTime issuedAt, LocalDateTime expiryAt,
                                       String userIp, String userAgent) {
         return RefreshToken.builder()
+                .familyId(java.util.UUID.randomUUID().toString())
                 .userId(userId)
                 .jti(jti)
                 .mobileType(mobileType)
@@ -122,7 +123,7 @@ public class RefreshToken extends BaseEntity {
                                LocalDateTime newIssuedAt, LocalDateTime newExpiryAt,
                                String newUserIp, String newUserAgent) {
         return RefreshToken.builder()
-                .parentId(this.id)
+                .familyId(this.familyId)
                 .userId(this.userId)
                 .jti(newJti)
                 .mobileType(this.mobileType)
@@ -137,10 +138,12 @@ public class RefreshToken extends BaseEntity {
     }
 
     /**
-     * 토큰 상태를 ROTATED로 변경 (Token Rotation 시)
+     * 토큰 상태를 ROTATED로 변경하고 사용 이력 기록 (Token Rotation 시)
      */
-    public void markAsRotated() {
+    public void markAsRotated(String lastUsedIp) {
         this.status = TokenStatus.ROTATED;
+        this.lastUsedAt = LocalDateTime.now();
+        this.lastUsedIp = lastUsedIp;
     }
 
     /**
