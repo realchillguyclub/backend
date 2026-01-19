@@ -23,13 +23,16 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import server.poptato.auth.domain.entity.RefreshToken;
 import server.poptato.auth.domain.repository.RefreshTokenRepository;
+import server.poptato.auth.domain.value.TokenStatus;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.dto.TokenPair;
 import server.poptato.global.exception.CustomException;
 import server.poptato.user.domain.value.MobileType;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class JwtService {
@@ -41,6 +44,7 @@ public class JwtService {
     private static final String USER_ID = "USER_ID";
     private static final String ACCESS_TOKEN = "ACCESS_TOKEN";
     private static final String REFRESH_TOKEN = "REFRESH_TOKEN";
+    private static final int GRACE_PERIOD_SECONDS = 3;
     public static final Duration ACCESS_TOKEN_EXPIRATION_MINUTE = Duration.ofMinutes(20);
     public static final Duration REFRESH_TOKEN_EXPIRATION_DAYS = Duration.ofDays(14);
 
@@ -185,27 +189,49 @@ public class JwtService {
     }
 
     /**
-     * DB에 저장된 리프레시 토큰과 입력받은 리프레시 토큰을 비교합니다.
+     * DB에 저장된 리프레시 토큰을 검증합니다.
+     * - ACTIVE 상태: 정상 진행
+     * - ROTATED 상태 + Grace Period 내: 중복 요청으로 간주 (429)
+     * - ROTATED 상태 + Grace Period 초과: 토큰 재사용 공격 탐지 → family 전체 revoke (401)
+     * - 그 외 상태: 이미 사용된 토큰 (401)
      *
      * @param jti          토큰의 jti
      * @param refreshToken 입력받은 리프레시 토큰
      * @return 조회된 RefreshToken 엔티티
-     * @throws CustomException 저장된 리프레시 토큰과 일치하지 않거나 없는 경우
+     * @throws CustomException 토큰 상태에 따른 예외 발생
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public RefreshToken validateAndGetRefreshToken(final String jti, final String refreshToken) {
         RefreshToken storedToken = refreshTokenRepository.findByJti(jti)
                 .orElseThrow(() -> new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN));
-
-        if (!storedToken.isActive()) {
-            throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
-        }
 
         if (!storedToken.getTokenValue().equals(refreshToken)) {
             throw new CustomException(AuthErrorStatus._DIFFERENT_REFRESH_TOKEN);
         }
 
-        return storedToken;
+        if (storedToken.isActive()) {
+            return storedToken;
+        }
+
+        if (storedToken.getStatus() == TokenStatus.ROTATED) {
+            if (isWithinGracePeriod(storedToken)) {
+                throw new CustomException(AuthErrorStatus._DUPLICATED_REFRESH_REQUEST);
+            }
+            log.warn("[Token Reuse Detected] familyId={}, jti={}, userId={}",
+                    storedToken.getFamilyId(), jti, storedToken.getUserId());
+            refreshTokenRepository.revokeAllByFamilyId(storedToken.getFamilyId());
+            throw new CustomException(AuthErrorStatus._TOKEN_REUSE_DETECTED);
+        }
+
+        throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
+    }
+
+    /**
+     * Grace Period 이내인지 확인합니다.
+     */
+    private boolean isWithinGracePeriod(RefreshToken token) {
+        return token.getLastUsedAt() != null &&
+                token.getLastUsedAt().plusSeconds(GRACE_PERIOD_SECONDS).isAfter(LocalDateTime.now());
     }
 
     /**
@@ -219,7 +245,7 @@ public class JwtService {
      */
     @Transactional
     public TokenPair rotateToken(final RefreshToken oldToken, final String userIp, final String userAgent) {
-        oldToken.markAsRotated();
+        oldToken.markAsRotated(userIp);
         refreshTokenRepository.save(oldToken);
 
         final String accessToken = createAccessToken(String.valueOf(oldToken.getUserId()));
