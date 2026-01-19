@@ -52,10 +52,9 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
     @Override
     @Modifying
     @Query("""
-        UPDATE RefreshToken r
-        SET r.status = 'DELETED'
+        DELETE FROM RefreshToken r
         WHERE r.status IN ('REVOKED', 'EXPIRED', 'ROTATED')
           AND r.modifyDate < :threshold
     """)
-    int softDeleteOldInactiveTokens(@Param("threshold") LocalDateTime threshold);
+    int hardDeleteOldInactiveTokens(@Param("threshold") LocalDateTime threshold);
 }

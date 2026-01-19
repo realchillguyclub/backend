@@ -89,7 +89,7 @@ scheduling:
   timeDeadlineNotificationCron: ${TIME_DEADLINE_NOTIFICATION_CRON}
   dailyStatsCron: ${DAILY_STATS_CRON}
   refreshTokenExpiredCron: ${REFRESH_TOKEN_EXPIRED_CRON:0 0 3 * * *}
-  refreshTokenSoftDeleteCron: ${REFRESH_TOKEN_SOFT_DELETE_CRON:0 30 3 * * *}
+  refreshTokenHardDeleteCron: ${REFRESH_TOKEN_HARD_DELETE_CRON:0 30 3 * * *}
 
 batch:
   size: ${BATCH_SIZE}

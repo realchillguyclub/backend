@@ -201,7 +201,7 @@ public class JwtService {
             throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
         }
 
-        if (!storedToken.getRefreshToken().equals(refreshToken)) {
+        if (!storedToken.getTokenValue().equals(refreshToken)) {
             throw new CustomException(AuthErrorStatus._DIFFERENT_REFRESH_TOKEN);
         }
 

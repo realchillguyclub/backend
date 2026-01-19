@@ -13,7 +13,7 @@ import server.poptato.auth.domain.repository.RefreshTokenRepository;
 /**
  * Refresh Token 정리 스케줄러
  * - 만료된 토큰 상태 업데이트
- * - 오래된 비활성 토큰 Soft Delete
+ * - 오래된 비활성 토큰 물리 삭제
  */
 @Slf4j
 @Component
@@ -37,14 +37,14 @@ public class RefreshTokenCleanupScheduler {
     }
 
     /**
-     * 오래된 비활성 토큰 Soft Delete
-     * REVOKED, EXPIRED, ROTATED 상태이면서 30일 이상 지난 토큰을 DELETED 상태로 변경한다.
+     * 오래된 비활성 토큰 물리 삭제
+     * REVOKED, EXPIRED, ROTATED 상태이면서 30일 이상 지난 토큰을 물리 삭제한다.
      */
-    @Scheduled(cron = "${scheduling.refreshTokenSoftDeleteCron}")
+    @Scheduled(cron = "${scheduling.refreshTokenHardDeleteCron}")
     @Transactional
-    public void softDeleteOldInactiveTokens() {
+    public void hardDeleteOldInactiveTokens() {
         LocalDateTime threshold = LocalDateTime.now().minusDays(RETENTION_DAYS);
-        int deletedCount = refreshTokenRepository.softDeleteOldInactiveTokens(threshold);
-        log.info("[RefreshToken Cleanup] 오래된 토큰 Soft Delete: {}건", deletedCount);
+        int deletedCount = refreshTokenRepository.hardDeleteOldInactiveTokens(threshold);
+        log.info("[RefreshToken Cleanup] 오래된 토큰 물리 삭제: {}건", deletedCount);
     }
 }
