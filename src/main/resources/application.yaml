@@ -1,0 +1,106 @@
+server:
+  port: ${SERVER_PORT}
+
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+        use_sql_comments: false
+    hibernate:
+      ddl-auto: validate
+    defer-datasource-initialization: true
+    open-in-view: false
+    generate-ddl: false
+    show-sql: false
+
+  sql:
+    init:
+      mode: never
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+oauth:
+  apple:
+    iss: ${OAUTH_APPLE_ISS}
+  kakao:
+    iss: ${OAUTH_KAKAO_ISS}
+    client-id: ${OAUTH_KAKAO_CLIENT_ID}
+    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI}
+    authorize-uri: ${OAUTH_KAKAO_AUTHORIZE_URI}
+    scope: ${OAUTH_KAKAO_SCOPE}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    region:
+      static: ${AWS_REGION}
+    s3:
+      bucket: ${AWS_S3_BUCKET}
+    stack:
+      auto: false
+
+firebase:
+  key:
+    path: ${FIREBASE_KEY_PATH}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  server:
+    port: 9001
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    persist-authorization: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+
+scheduling:
+  todoCron: ${TODO_CRON}
+  fcmCleanupCron: ${FCM_CLEANUP_CRON}
+  startNotificationCron: ${START_NOTIFICATION_CRON}
+  endOfDayNotificationCron: ${END_OF_DAY_NOTIFICATION_CRON}
+  todayTodosNotificationCron: ${TODAY_TODOS_NOTIFICATION_CRON}
+  timeDeadlineNotificationCron: ${TIME_DEADLINE_NOTIFICATION_CRON}
+  dailyStatsCron: ${DAILY_STATS_CRON}
+  refreshTokenExpiredCron: ${REFRESH_TOKEN_EXPIRED_CRON:0 0 3 * * *}
+  refreshTokenSoftDeleteCron: ${REFRESH_TOKEN_SOFT_DELETE_CRON:0 30 3 * * *}
+
+batch:
+  size: ${BATCH_SIZE}
+
+discord:
+  create-user-comment-webhook-url: ${DISCORD_CREATE_USER_COMMENT_WEBHOOK_URL}
+  create-user-webhook-url: ${DISCORD_CREATE_USER_WEBHOOK_URL}
+  delete-user-webhook-url: ${DISCORD_DELETE_USER_WEBHOOK_URL}
+  daily-stats-webhook-url: ${DISCORD_DAILY_STATS_WEBHOOK_URL}
+
+notion:
+  api-url: https://api.notion.com/v1
+  secret-key: ${NOTION_SECRET_KEY}
+  database-id: ${NOTION_DATABASE_ID}

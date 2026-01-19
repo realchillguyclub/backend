@@ -28,7 +28,7 @@ public class RefreshTokenCleanupScheduler {
      * 만료된 토큰 상태 업데이트
      * ACTIVE 상태이면서 expiry_at이 지난 토큰을 EXPIRED로 변경한다.
      */
-    @Scheduled(cron = "0 0 3 * * *")
+    @Scheduled(cron = "${scheduling.refreshTokenExpiredCron}")
     @Transactional
     public void updateExpiredTokens() {
         LocalDateTime now = LocalDateTime.now();
@@ -40,7 +40,7 @@ public class RefreshTokenCleanupScheduler {
      * 오래된 비활성 토큰 Soft Delete
      * REVOKED, EXPIRED, ROTATED 상태이면서 30일 이상 지난 토큰을 DELETED 상태로 변경한다.
      */
-    @Scheduled(cron = "0 30 3 * * *")
+    @Scheduled(cron = "${scheduling.refreshTokenSoftDeleteCron}")
     @Transactional
     public void softDeleteOldInactiveTokens() {
         LocalDateTime threshold = LocalDateTime.now().minusDays(RETENTION_DAYS);
