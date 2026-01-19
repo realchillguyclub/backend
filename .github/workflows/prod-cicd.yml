@@ -3,6 +3,7 @@ name: 🚀 Build & Deploy (Production)
 on:
   pull_request:
     branches: [main]
+    types: [closed]
 
 permissions:
   contents: read
@@ -10,6 +11,7 @@ permissions:
 jobs:
   build-and-push:
     name: Build and Push to ECR
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ github.sha }}

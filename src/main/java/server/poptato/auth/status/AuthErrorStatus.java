@@ -28,7 +28,7 @@ public enum AuthErrorStatus implements BaseErrorCode {
     _SIGNUP_IN_PROGRESS(HttpStatus.CONFLICT, "AUTH-016", "이미 로그인이 진행 중입니다."),
     _OAUTH_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "AUTH-017", "사용자가 소셜 로그인 동의를 거부했습니다."),
 	_INVALID_STATE(HttpStatus.BAD_REQUEST, "AUTH-018", "유효하지 않은 OAuth state 값입니다."),
-	_ALREADY_USED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH-19", "이미 사용된 리프레쉬 토큰입니다.")
+	_ALREADY_USED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH-019", "이미 사용된 리프레쉬 토큰입니다.")
 	;
 
     private final HttpStatus httpStatus;
