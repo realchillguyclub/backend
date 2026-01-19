@@ -1,97 +1,79 @@
-name: 🚀 Build & Deploy workflow on production environment
+name: 🚀 Build & Deploy (Production)
 
 on:
   pull_request:
     branches: [main]
-    types: [closed] # PR이 main에 merge될 때 실행
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    if: github.event.pull_request.merged == true
+  build-and-push:
+    name: Build and Push to ECR
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ github.sha }}
     steps:
-      # 1. GitHub 리포지토리에서 코드 체크아웃
       - name: ✅ 브랜치 체크아웃
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. Gradle로 프로젝트 빌드
-      - name: 📦 프로젝트 빌드
+      - name: ☕ JDK 17 설정
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      - name: 📦 Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: 🔨 프로젝트 빌드
         run: ./gradlew clean build
 
-      # 3. 빌드 결과를 아티팩트로 저장
-      - name: 📦 빌드 결과 저장
-        uses: actions/upload-artifact@v4
+      - name: 🏗️ Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 AWS 자격 증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          name: build-artifacts
-          path: build/libs/*.jar
-
-  deploy:
-    needs: build
-    environment: production
-    runs-on: ubuntu-latest
-    steps:
-      # ✅ 환경 변수 추가 (SPRING_PROFILES_ACTIVE=production)
-      - name: 🌎 Set environment variables
-        run: echo "SPRING_PROFILES_ACTIVE=prod" >> $GITHUB_ENV
-
-      # 1. GitHub 리포지토리에서 코드 체크아웃
-      - name: ✅ 브랜치 체크아웃
-        uses: actions/checkout@v3
-
-      # 2. 빌드 결과 다운로드
-      - name: 📦 빌드 결과 다운로드
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-
-      # 3. 현재 타임스탬프 생성
-      - name: 🕒 타임스탬프 생성
-        run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
-
-      # 4. Test 환경의 .env 파일 생성
-      - name: ⚙️ .env 파일 복원
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-
-      # 5. Test 환경의 docker-compose.yaml 생성
-      - name: 🐋 docker-compose.yaml 복원
-        run: |
-          echo "${{ secrets.DOCKER_COMPOSE_FILE }}" > docker-compose.yaml
-
-      # 6. Firebase Admin Key 파일 생성
-      - name: Write Firebase Admin Key to File
-        env:
-          FIREBASE_ADMIN: ${{ secrets.FIREBASE_ADMIN }}
-        run: |
-          echo "$FIREBASE_ADMIN" > illdan-firebase-adminsdk-fbsvc-f2e4b78293.json
-
-      # 7. 필요한 파일 압축
-      - name: 📦 배포 패키지 압축
-        run: |
-          mkdir temp_deploy_package
-          cp -r *.jar .env illdan-firebase-adminsdk-fbsvc-f2e4b78293.json Dockerfile docker-compose.yaml appspec.yml deploy/ temp_deploy_package/
-          cd temp_deploy_package && zip -r ../build-${{ env.TIMESTAMP }}-${{ github.sha }}.zip . && cd ..
-          rm -rf temp_deploy_package
-
-      # 8. AWS Credentials 설정
-      - name: 🌎 AWS 자격 증명 설정
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_CODEDEPLOY_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_CODEDEPLOY_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      # 9. S3 버킷으로 파일 업로드
-      - name: 🚛 S3에 파일 업로드
-        run: aws s3 cp build-${{ env.TIMESTAMP }}-${{ github.sha }}.zip s3://${{ secrets.S3_BUCKET_NAME }}/prod/build-${{ env.TIMESTAMP }}-${{ github.sha }}.zip
+      - name: 🐳 ECR 로그인
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # 10. CodeDeploy를 통해 배포 수행
-      - name: 🚀 CodeDeploy로 EC2 배포
-        run: |
-          aws deploy create-deployment \
-            --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} \
-            --deployment-group-name ${{ secrets.CODEDEPLOY_PROD_GROUP }} \
-            --s3-location bucket=${{ secrets.S3_BUCKET_NAME }},key=prod/build-${{ env.TIMESTAMP }}-${{ github.sha }}.zip,bundleType=zip
+      - name: 🐳 Docker 이미지 빌드 및 푸시 (ARM64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: 🚀 SSH로 배포 스크립트 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ~/scripts/deploy.sh ${{ github.sha }}
