@@ -54,8 +54,8 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "user_ip", length = 45)
     private String userIp;
 
-    @Column(name = "refresh_token", nullable = false, columnDefinition = "TEXT")
-    private String refreshToken;
+    @Column(name = "token_value", nullable = false, columnDefinition = "TEXT")
+    private String tokenValue;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(20)")
@@ -78,7 +78,7 @@ public class RefreshToken extends BaseEntity {
 
     @Builder
     public RefreshToken(Long parentId, Long userId, String jti, MobileType mobileType,
-                        String clientId, String userAgent, String userIp, String refreshToken,
+                        String clientId, String userAgent, String userIp, String tokenValue,
                         LocalDateTime issuedAt, LocalDateTime expiryAt, int reissueCount) {
         this.parentId = parentId;
         this.userId = userId;
@@ -87,7 +87,7 @@ public class RefreshToken extends BaseEntity {
         this.clientId = clientId;
         this.userAgent = userAgent;
         this.userIp = userIp;
-        this.refreshToken = refreshToken;
+        this.tokenValue = tokenValue;
         this.status = TokenStatus.ACTIVE;
         this.issuedAt = issuedAt;
         this.expiryAt = expiryAt;
@@ -98,7 +98,7 @@ public class RefreshToken extends BaseEntity {
      * 신규 Refresh Token 생성 (로그인 시)
      */
     public static RefreshToken create(Long userId, String jti, MobileType mobileType,
-                                      String clientId, String refreshToken,
+                                      String clientId, String tokenValue,
                                       LocalDateTime issuedAt, LocalDateTime expiryAt,
                                       String userIp, String userAgent) {
         return RefreshToken.builder()
@@ -106,7 +106,7 @@ public class RefreshToken extends BaseEntity {
                 .jti(jti)
                 .mobileType(mobileType)
                 .clientId(clientId)
-                .refreshToken(refreshToken)
+                .tokenValue(tokenValue)
                 .issuedAt(issuedAt)
                 .expiryAt(expiryAt)
                 .userIp(userIp)
@@ -118,7 +118,7 @@ public class RefreshToken extends BaseEntity {
     /**
      * Token Rotation으로 새 토큰 생성 (재발급 시)
      */
-    public RefreshToken rotate(String newJti, String newRefreshToken,
+    public RefreshToken rotate(String newJti, String newTokenValue,
                                LocalDateTime newIssuedAt, LocalDateTime newExpiryAt,
                                String newUserIp, String newUserAgent) {
         return RefreshToken.builder()
@@ -127,7 +127,7 @@ public class RefreshToken extends BaseEntity {
                 .jti(newJti)
                 .mobileType(this.mobileType)
                 .clientId(this.clientId)
-                .refreshToken(newRefreshToken)
+                .tokenValue(newTokenValue)
                 .issuedAt(newIssuedAt)
                 .expiryAt(newExpiryAt)
                 .userIp(newUserIp)
