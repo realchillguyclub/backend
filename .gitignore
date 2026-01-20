@@ -54,3 +54,6 @@ out/
 .claude
 CLAUDE.md
 /docs
+
+##open-api (auto-generated)
+src/main/resources/static/docs/open-api-3.0.1.json
