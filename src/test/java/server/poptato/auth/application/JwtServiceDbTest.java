@@ -1,11 +1,8 @@
 package server.poptato.auth.application;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -24,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.auth.domain.entity.RefreshToken;
 import server.poptato.auth.domain.repository.RefreshTokenRepository;
+import server.poptato.auth.domain.value.TokenStatus;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.configuration.ServiceTestConfig;
 import server.poptato.global.dto.TokenPair;
@@ -142,8 +140,8 @@ class JwtServiceDbTest extends ServiceTestConfig {
         }
 
         @Test
-        @DisplayName("[TC-JWT-DB-005] 토큰이 ACTIVE 상태가 아니면 _ALREADY_USED_REFRESH_TOKEN 예외가 발생한다")
-        void validateAndGetRefreshToken_notActive_throwsException() {
+        @DisplayName("[TC-JWT-DB-005] REVOKED 상태의 토큰은 _ALREADY_USED_REFRESH_TOKEN 예외가 발생한다")
+        void validateAndGetRefreshToken_revoked_throwsException() {
             // given
             String jti = "test-jti";
             String refreshToken = "test-refresh-token";
@@ -152,7 +150,7 @@ class JwtServiceDbTest extends ServiceTestConfig {
                     1L, jti, MobileType.ANDROID, "client", refreshToken,
                     LocalDateTime.now(), LocalDateTime.now().plusDays(14), "127.0.0.1", "Agent"
             );
-            storedToken.markAsRotated();
+            ReflectionTestUtils.setField(storedToken, "status", TokenStatus.REVOKED);
 
             when(refreshTokenRepository.findByJti(jti)).thenReturn(Optional.of(storedToken));
 
@@ -191,7 +189,7 @@ class JwtServiceDbTest extends ServiceTestConfig {
     class RotateTokenTest {
 
         @Test
-        @DisplayName("[TC-JWT-DB-007] rotateToken 호출 시 기존 토큰이 ROTATED로 변경되고 새 토큰이 생성된다")
+        @DisplayName("[TC-JWT-DB-007] rotateToken 호출 시 원자적 업데이트로 토큰이 ROTATED로 변경되고 새 토큰이 생성된다")
         void rotateToken_updatesOldAndCreatesNew() {
             // given
             RefreshToken oldToken = RefreshToken.create(
@@ -200,6 +198,7 @@ class JwtServiceDbTest extends ServiceTestConfig {
             );
             ReflectionTestUtils.setField(oldToken, "id", 100L);
 
+            when(refreshTokenRepository.markAsRotatedIfActive(any(), any(), any())).thenReturn(1);
             when(refreshTokenRepository.save(any(RefreshToken.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -209,8 +208,8 @@ class JwtServiceDbTest extends ServiceTestConfig {
             // then
             assertThat(result.accessToken()).isNotBlank();
             assertThat(result.refreshToken()).isNotBlank();
-            assertThat(oldToken.isActive()).isFalse();
-            verify(refreshTokenRepository).save(oldToken);
+            verify(refreshTokenRepository).markAsRotatedIfActive(any(), any(), any());
+            verify(refreshTokenRepository).save(any(RefreshToken.class));
         }
 
         @Test
@@ -222,7 +221,9 @@ class JwtServiceDbTest extends ServiceTestConfig {
                     LocalDateTime.now().minusDays(7), LocalDateTime.now().plusDays(7), "127.0.0.1", "Agent"
             );
             ReflectionTestUtils.setField(oldToken, "id", 100L);
+            String originalFamilyId = oldToken.getFamilyId();
 
+            when(refreshTokenRepository.markAsRotatedIfActive(any(), any(), any())).thenReturn(1);
             ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
             when(refreshTokenRepository.save(captor.capture()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
@@ -231,11 +232,29 @@ class JwtServiceDbTest extends ServiceTestConfig {
             jwtService.rotateToken(oldToken, "192.168.1.1", "NewAgent");
 
             // then
-            // save가 2번 호출됨: 1) oldToken 업데이트, 2) newToken 저장
-            assertThat(captor.getAllValues()).hasSize(2);
-            RefreshToken newToken = captor.getAllValues().get(1);
-            assertThat(newToken.getParentId()).isEqualTo(100L);
+            RefreshToken newToken = captor.getValue();
+            assertThat(newToken.getFamilyId()).isEqualTo(originalFamilyId);
             assertThat(newToken.isActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("[TC-JWT-DB-011] rotateToken 호출 시 원자적 업데이트 실패하면 예외가 발생한다")
+        void rotateToken_atomicUpdateFails_throwsException() {
+            // given
+            RefreshToken oldToken = RefreshToken.create(
+                    1L, "old-jti", MobileType.ANDROID, "client", "old-refresh-token",
+                    LocalDateTime.now().minusDays(7), LocalDateTime.now().plusDays(7), "127.0.0.1", "Agent"
+            );
+            ReflectionTestUtils.setField(oldToken, "id", 100L);
+
+            // 원자적 업데이트 실패 (이미 다른 요청에서 처리됨)
+            when(refreshTokenRepository.markAsRotatedIfActive(any(), any(), any())).thenReturn(0);
+
+            // when & then
+            assertThatThrownBy(() -> jwtService.rotateToken(oldToken, "192.168.1.1", "NewAgent"))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN));
         }
     }
 

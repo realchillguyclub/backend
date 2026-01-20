@@ -1,8 +1,8 @@
 package server.poptato.auth.application;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
 
@@ -16,8 +16,6 @@ import org.mockito.Mock;
 import server.poptato.auth.application.scheduler.RefreshTokenCleanupScheduler;
 import server.poptato.auth.domain.repository.RefreshTokenRepository;
 import server.poptato.configuration.ServiceTestConfig;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class RefreshTokenCleanupSchedulerTest extends ServiceTestConfig {
 
@@ -61,23 +59,23 @@ class RefreshTokenCleanupSchedulerTest extends ServiceTestConfig {
     }
 
     @Nested
-    @DisplayName("[SCN-SVC-SCHEDULER-002] 오래된 비활성 토큰 Soft Delete")
-    class SoftDeleteOldInactiveTokensTest {
+    @DisplayName("[SCN-SVC-SCHEDULER-002] 오래된 비활성 토큰 물리 삭제")
+    class HardDeleteOldInactiveTokensTest {
 
         @Test
-        @DisplayName("[TC-SCHEDULER-003] softDeleteOldInactiveTokens 호출 시 30일 전 기준으로 repository 메서드가 호출된다")
-        void softDeleteOldInactiveTokens_callsRepositoryWithThreshold() {
+        @DisplayName("[TC-SCHEDULER-003] hardDeleteOldInactiveTokens 호출 시 30일 전 기준으로 repository 메서드가 호출된다")
+        void hardDeleteOldInactiveTokens_callsRepositoryWithThreshold() {
             // given
-            when(refreshTokenRepository.softDeleteOldInactiveTokens(any(LocalDateTime.class))).thenReturn(3);
+            when(refreshTokenRepository.hardDeleteOldInactiveTokens(any(LocalDateTime.class))).thenReturn(3);
 
             // when
             LocalDateTime before = LocalDateTime.now().minusDays(30);
-            scheduler.softDeleteOldInactiveTokens();
+            scheduler.hardDeleteOldInactiveTokens();
             LocalDateTime after = LocalDateTime.now().minusDays(30);
 
             // then
             ArgumentCaptor<LocalDateTime> captor = ArgumentCaptor.forClass(LocalDateTime.class);
-            verify(refreshTokenRepository).softDeleteOldInactiveTokens(captor.capture());
+            verify(refreshTokenRepository).hardDeleteOldInactiveTokens(captor.capture());
 
             LocalDateTime captured = captor.getValue();
             assertThat(captured).isAfterOrEqualTo(before.minusSeconds(1));
@@ -85,16 +83,16 @@ class RefreshTokenCleanupSchedulerTest extends ServiceTestConfig {
         }
 
         @Test
-        @DisplayName("[TC-SCHEDULER-004] softDeleteOldInactiveTokens가 삭제 건수를 정상적으로 처리한다")
-        void softDeleteOldInactiveTokens_handlesCount() {
+        @DisplayName("[TC-SCHEDULER-004] hardDeleteOldInactiveTokens가 삭제 건수를 정상적으로 처리한다")
+        void hardDeleteOldInactiveTokens_handlesCount() {
             // given
-            when(refreshTokenRepository.softDeleteOldInactiveTokens(any(LocalDateTime.class))).thenReturn(0);
+            when(refreshTokenRepository.hardDeleteOldInactiveTokens(any(LocalDateTime.class))).thenReturn(0);
 
             // when
-            scheduler.softDeleteOldInactiveTokens();
+            scheduler.hardDeleteOldInactiveTokens();
 
             // then
-            verify(refreshTokenRepository).softDeleteOldInactiveTokens(any(LocalDateTime.class));
+            verify(refreshTokenRepository).hardDeleteOldInactiveTokens(any(LocalDateTime.class));
         }
     }
 }

@@ -1,6 +1,6 @@
 package server.poptato.auth.domain;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.LocalDateTime;
 
@@ -45,7 +45,7 @@ class RefreshTokenTest extends ServiceTestConfig {
             assertThat(token.getJti()).isEqualTo(jti);
             assertThat(token.getMobileType()).isEqualTo(mobileType);
             assertThat(token.getClientId()).isEqualTo(clientId);
-            assertThat(token.getRefreshToken()).isEqualTo(refreshToken);
+            assertThat(token.getTokenValue()).isEqualTo(refreshToken);
             assertThat(token.getIssuedAt()).isEqualTo(issuedAt);
             assertThat(token.getExpiryAt()).isEqualTo(expiryAt);
             assertThat(token.getUserIp()).isEqualTo(userIp);
@@ -55,8 +55,8 @@ class RefreshTokenTest extends ServiceTestConfig {
         }
 
         @Test
-        @DisplayName("[TC-REFRESH-002] create 호출 시 parentId는 null이다")
-        void create_parentIdIsNull() {
+        @DisplayName("[TC-REFRESH-002] create 호출 시 familyId가 UUID 형식으로 생성된다")
+        void create_familyIdIsGenerated() {
             // given
             LocalDateTime now = LocalDateTime.now();
 
@@ -67,7 +67,8 @@ class RefreshTokenTest extends ServiceTestConfig {
             );
 
             // then
-            assertThat(token.getParentId()).isNull();
+            assertThat(token.getFamilyId()).isNotNull();
+            assertThat(token.getFamilyId()).hasSize(36); // UUID format: 8-4-4-4-12 = 36 chars
         }
     }
 
@@ -76,8 +77,8 @@ class RefreshTokenTest extends ServiceTestConfig {
     class RotateTest {
 
         @Test
-        @DisplayName("[TC-REFRESH-003] rotate 호출 시 parentId가 설정된 새 토큰이 반환된다")
-        void rotate_setsParentId() {
+        @DisplayName("[TC-REFRESH-003] rotate 호출 시 동일한 familyId를 가진 새 토큰이 반환된다")
+        void rotate_keepsFamilyId() {
             // given
             LocalDateTime now = LocalDateTime.now();
             RefreshToken oldToken = RefreshToken.create(
@@ -95,7 +96,7 @@ class RefreshTokenTest extends ServiceTestConfig {
             RefreshToken newToken = oldToken.rotate(newJti, newRefreshToken, newIssuedAt, newExpiryAt, "192.168.1.1", "NewAgent");
 
             // then
-            assertThat(newToken.getParentId()).isEqualTo(100L);
+            assertThat(newToken.getFamilyId()).isEqualTo(oldToken.getFamilyId());
             assertThat(newToken.getUserId()).isEqualTo(oldToken.getUserId());
             assertThat(newToken.getMobileType()).isEqualTo(oldToken.getMobileType());
             assertThat(newToken.getClientId()).isEqualTo(oldToken.getClientId());
@@ -143,8 +144,8 @@ class RefreshTokenTest extends ServiceTestConfig {
     class MarkAsRotatedTest {
 
         @Test
-        @DisplayName("[TC-REFRESH-006] markAsRotated 호출 시 상태가 ROTATED로 변경된다")
-        void markAsRotated_changesStatusToRotated() {
+        @DisplayName("[TC-REFRESH-006] markAsRotated 호출 시 상태가 ROTATED로 변경되고 사용 이력이 기록된다")
+        void markAsRotated_changesStatusToRotatedAndRecordsUsage() {
             // given
             LocalDateTime now = LocalDateTime.now();
             RefreshToken token = RefreshToken.create(
@@ -154,10 +155,12 @@ class RefreshTokenTest extends ServiceTestConfig {
             assertThat(token.isActive()).isTrue();
 
             // when
-            token.markAsRotated();
+            token.markAsRotated("192.168.1.1");
 
             // then
             assertThat(token.isActive()).isFalse();
+            assertThat(token.getLastUsedAt()).isNotNull();
+            assertThat(token.getLastUsedIp()).isEqualTo("192.168.1.1");
         }
     }
 
@@ -188,7 +191,7 @@ class RefreshTokenTest extends ServiceTestConfig {
                     1L, "jti", MobileType.ANDROID, "client", "token",
                     now, now.plusDays(14), "127.0.0.1", "Agent"
             );
-            token.markAsRotated();
+            token.markAsRotated("127.0.0.1");
 
             // when & then
             assertThat(token.isActive()).isFalse();

@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import io.jsonwebtoken.Claims;
 import server.poptato.auth.api.request.FCMTokenRequestDto;
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.api.request.ReissueTokenRequestDto;
@@ -347,8 +348,9 @@ class AuthServiceTest extends ServiceTestConfig {
             RefreshToken storedToken = mock(RefreshToken.class);
             when(storedToken.getUserId()).thenReturn(userId);
 
-            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
-            when(jwtService.getJtiFromToken(refreshToken)).thenReturn(jti);
+            Claims claims = mock(Claims.class);
+            when(claims.getId()).thenReturn(jti);
+            when(jwtService.verifyRefreshToken(refreshToken)).thenReturn(claims);
             when(jwtService.validateAndGetRefreshToken(jti, refreshToken)).thenReturn(storedToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
@@ -366,7 +368,6 @@ class AuthServiceTest extends ServiceTestConfig {
             assertThat(result.refreshToken()).isEqualTo("refresh-new");
 
             verify(jwtService).verifyRefreshToken(refreshToken);
-            verify(jwtService).getJtiFromToken(refreshToken);
             verify(jwtService).validateAndGetRefreshToken(jti, refreshToken);
             verify(userValidator).checkIsExistUser(userId);
             verify(mobileRepository).findByClientId(clientId);
@@ -388,8 +389,9 @@ class AuthServiceTest extends ServiceTestConfig {
             RefreshToken storedToken = mock(RefreshToken.class);
             when(storedToken.getUserId()).thenReturn(userId);
 
-            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
-            when(jwtService.getJtiFromToken(refreshToken)).thenReturn(jti);
+            Claims claims = mock(Claims.class);
+            when(claims.getId()).thenReturn(jti);
+            when(jwtService.verifyRefreshToken(refreshToken)).thenReturn(claims);
             when(jwtService.validateAndGetRefreshToken(jti, refreshToken)).thenReturn(storedToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
@@ -422,8 +424,9 @@ class AuthServiceTest extends ServiceTestConfig {
             RefreshToken storedToken = mock(RefreshToken.class);
             when(storedToken.getUserId()).thenReturn(userId);
 
-            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
-            when(jwtService.getJtiFromToken(refreshToken)).thenReturn(jti);
+            Claims claims = mock(Claims.class);
+            when(claims.getId()).thenReturn(jti);
+            when(jwtService.verifyRefreshToken(refreshToken)).thenReturn(claims);
             when(jwtService.validateAndGetRefreshToken(jti, refreshToken)).thenReturn(storedToken);
             doNothing().when(userValidator).checkIsExistUser(userId);
 
@@ -450,8 +453,9 @@ class AuthServiceTest extends ServiceTestConfig {
             String clientId = "client-id";
             ReissueTokenRequestDto dto = reissueTokenRequestDto(refreshToken, mobileType, clientId);
 
-            doNothing().when(jwtService).verifyRefreshToken(refreshToken);
-            when(jwtService.getJtiFromToken(refreshToken)).thenReturn(jti);
+            Claims claims = mock(Claims.class);
+            when(claims.getId()).thenReturn(jti);
+            when(jwtService.verifyRefreshToken(refreshToken)).thenReturn(claims);
             when(jwtService.validateAndGetRefreshToken(jti, refreshToken))
                     .thenThrow(new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN));
 
