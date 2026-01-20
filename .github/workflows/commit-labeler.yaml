@@ -33,6 +33,7 @@ jobs:
                 if (msg.includes("release")) labels.add("💫 release");
                 if (msg.includes("rename")) labels.add("🎫 rename");
                 if (msg.includes("remove")) labels.add("✂️ remove");
+                if (msg.includes("ci")) labels.add("🔧 ci");
             }
 
             if (labels.size > 0) {
