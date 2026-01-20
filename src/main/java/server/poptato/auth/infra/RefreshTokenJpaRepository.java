@@ -74,7 +74,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
         UPDATE RefreshToken r
         SET r.status = 'ROTATED',
             r.lastUsedAt = :lastUsedAt,
-            r.lastUsedIp = :lastUsedIp
+            r.lastUsedIp = :lastUsedIp,
+            r.modifyDate = :lastUsedAt
         WHERE r.id = :tokenId
           AND r.status = 'ACTIVE'
     """)
