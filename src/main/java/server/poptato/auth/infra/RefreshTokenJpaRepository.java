@@ -21,7 +21,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
     @Modifying
     @Query("""
         UPDATE RefreshToken r
-        SET r.status = 'REVOKED'
+        SET r.status = 'REVOKED',
+            r.modifyDate = CURRENT_TIMESTAMP
         WHERE r.userId = :userId
           AND r.mobileType = :mobileType
           AND r.status = 'ACTIVE'
@@ -33,7 +34,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
     @Modifying
     @Query("""
         UPDATE RefreshToken r
-        SET r.status = 'REVOKED'
+        SET r.status = 'REVOKED',
+            r.modifyDate = CURRENT_TIMESTAMP
         WHERE r.userId = :userId
           AND r.status = 'ACTIVE'
     """)
@@ -43,7 +45,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
     @Modifying
     @Query("""
         UPDATE RefreshToken r
-        SET r.status = 'EXPIRED'
+        SET r.status = 'EXPIRED',
+            r.modifyDate = CURRENT_TIMESTAMP
         WHERE r.status = 'ACTIVE'
           AND r.expiryAt < :now
     """)
@@ -62,7 +65,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshToken, L
     @Modifying
     @Query("""
         UPDATE RefreshToken r
-        SET r.status = 'REVOKED'
+        SET r.status = 'REVOKED',
+            r.modifyDate = CURRENT_TIMESTAMP
         WHERE r.familyId = :familyId
           AND r.status IN ('ACTIVE', 'ROTATED')
     """)
