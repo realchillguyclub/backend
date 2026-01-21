@@ -54,6 +54,7 @@ out/
 .claude
 CLAUDE.md
 /docs
+.worktrees
 
 ##open-api (auto-generated)
 src/main/resources/static/docs/*
