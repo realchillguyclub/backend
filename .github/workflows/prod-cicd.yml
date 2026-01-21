@@ -1,0 +1,81 @@
+name: 🚀 Build & Deploy (Production)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+      - name: ✅ 브랜치 체크아웃
+        uses: actions/checkout@v4
+
+      - name: ☕ JDK 17 설정
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      - name: 📦 Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: 🔨 프로젝트 빌드
+        run: ./gradlew clean build
+
+      - name: 🏗️ Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 AWS 자격 증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: 🐳 ECR 로그인
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 🐳 Docker 이미지 빌드 및 푸시 (ARM64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: 🚀 SSH로 배포 스크립트 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ~/scripts/deploy.sh ${{ github.sha }}

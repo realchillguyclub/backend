@@ -59,15 +59,6 @@ firebase:
   key:
     path: ${FIREBASE_KEY_PATH}
 
-logging:
-  level:
-    root: info
-    side.onetime.global.filter: debug
-    side.onetime.util: debug
-    side.onetime.exception: debug
-    org.hibernate.SQL: off
-    org.hibernate.type.descriptor.sql.BasicBinder: off
-
 management:
   endpoint:
     health:
@@ -90,16 +81,18 @@ springdoc:
   show-actuator: false
 
 scheduling:
-  todoCron: ${TODO_CRON}  # 할 일 상태 업데이트 스케줄러
-  fcmCleanupCron: ${FCM_CLEANUP_CRON}  # 비활성 FCM 토큰 삭제 스케줄러
-  startNotificationCron: ${START_NOTIFICATION_CRON}  # 하루 시작 알림 스케줄러
-  endOfDayNotificationCron: ${END_OF_DAY_NOTIFICATION_CRON}  # 일과 정리 알림 스케줄러
-  todayTodosNotificationCron: ${TODAY_TODOS_NOTIFICATION_CRON}  # 오늘 할 일 알림 스케줄러
-  timeDeadlineNotificationCron: ${TIME_DEADLINE_NOTIFICATION_CRON} # 시간 설정 할 일 알림 스케줄러
-  dailyStatsCron: ${DAILY_STATS_CRON} # 일일 통계 집계 스케줄러
+  todoCron: ${TODO_CRON:0 0 0 * * *}
+  fcmCleanupCron: ${FCM_CLEANUP_CRON:0 1 0 * * *}
+  startNotificationCron: ${START_NOTIFICATION_CRON:0 0 8 * * *}
+  endOfDayNotificationCron: ${END_OF_DAY_NOTIFICATION_CRON:0 0 22 * * *}
+  todayTodosNotificationCron: ${TODAY_TODOS_NOTIFICATION_CRON:30 0 8 * * *}
+  timeDeadlineNotificationCron: ${TIME_DEADLINE_NOTIFICATION_CRON:0 */5 * * * *}
+  dailyStatsCron: ${DAILY_STATS_CRON:0 58 23 * * *}
+  refreshTokenExpiredCron: ${REFRESH_TOKEN_EXPIRED_CRON:0 0 3 * * *}
+  refreshTokenHardDeleteCron: ${REFRESH_TOKEN_HARD_DELETE_CRON:0 30 3 * * *}
 
 batch:
-  size: ${BATCH_SIZE}
+  size: ${BATCH_SIZE:50}
 
 discord:
   create-user-comment-webhook-url: ${DISCORD_CREATE_USER_COMMENT_WEBHOOK_URL}

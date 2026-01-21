@@ -35,9 +35,9 @@ public class SwaggerConfig {
 					.url("https://github.com/bbbang105")
 					.email("hchsa77@gmail.com"))
 			).servers(List.of(
-				new Server().url("http://localhost:8085").description("로컬 서버"),
-				new Server().url("https://prev-illdan.store").description("테스트 서버"),
-				new Server().url("https://prev-illdan-prod.store").description("배포 서버")
+				new Server().url("http://localhost:8085").description("LOCAL"),
+				new Server().url("https://dev-api.illdan.co.kr").description("DEV"),
+				new Server().url("https://api.illdan.co.kr").description("PROD")
 			));
 		try {
 			// ✅ Swagger 전용 ObjectMapper 사용

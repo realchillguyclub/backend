@@ -1,26 +1,38 @@
 package server.poptato.auth.application.service;
 
-import io.jsonwebtoken.*;
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Date;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Header;
+import io.jsonwebtoken.IncorrectClaimException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
-import io.lettuce.core.RedisCommandTimeoutException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.RedisConnectionFailureException;
-import org.springframework.stereotype.Service;
-import server.poptato.auth.infra.JwtRepository;
+import lombok.extern.slf4j.Slf4j;
+import server.poptato.auth.domain.entity.RefreshToken;
+import server.poptato.auth.domain.repository.RefreshTokenRepository;
+import server.poptato.auth.domain.value.TokenStatus;
 import server.poptato.auth.status.AuthErrorStatus;
 import server.poptato.global.dto.TokenPair;
 import server.poptato.global.exception.CustomException;
 import server.poptato.user.domain.value.MobileType;
 
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
-import java.time.Duration;
-import java.util.Base64;
-import java.util.Date;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class JwtService {
@@ -28,13 +40,15 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    private static final String ISS = "ILLDAN_API_SERVER";
     private static final String USER_ID = "USER_ID";
     private static final String ACCESS_TOKEN = "ACCESS_TOKEN";
     private static final String REFRESH_TOKEN = "REFRESH_TOKEN";
-    public static final Duration ACCESS_TOKEN_EXPIRATION_MINUTE  = Duration.ofMinutes(20);
+    private static final int GRACE_PERIOD_SECONDS = 3;
+    public static final Duration ACCESS_TOKEN_EXPIRATION_MINUTE = Duration.ofMinutes(20);
     public static final Duration REFRESH_TOKEN_EXPIRATION_DAYS = Duration.ofDays(14);
 
-    private final JwtRepository jwtRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     /**
      * JWT 비밀키를 Base64로 인코딩합니다.
@@ -53,58 +67,72 @@ public class JwtService {
      * @return 생성된 액세스 토큰
      */
     public String createAccessToken(final String userId) {
-        final Claims claims = getAccessTokenClaims();
-        claims.put(USER_ID, userId);
-        return createToken(claims);
+        final Date now = new Date();
+        return Jwts.builder()
+                .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
+                .setIssuer(ISS)
+                .setSubject(ACCESS_TOKEN)
+                .setIssuedAt(now)
+                .setExpiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis()))
+                .claim(USER_ID, userId)
+                .signWith(getSigningKey())
+                .compact();
     }
 
     /**
-     * 리프레시 토큰을 생성합니다.
+     * 리프레시 토큰을 생성합니다. (jti 포함)
      *
      * @param userId 토큰에 포함할 유저 ID
+     * @param jti JWT 고유 식별자
      * @return 생성된 리프레시 토큰
      */
-    public String createRefreshToken(final String userId) {
-        final Claims claims = getRefreshTokenClaims();
-        claims.put(USER_ID, userId);
-        return createToken(claims);
+    public String createRefreshToken(final String userId, final String jti) {
+        final Date now = new Date();
+        return Jwts.builder()
+                .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
+                .setIssuer(ISS)
+                .setSubject(REFRESH_TOKEN)
+                .setIssuedAt(now)
+                .setExpiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION_DAYS.toMillis()))
+                .setId(jti)
+                .claim(USER_ID, userId)
+                .signWith(getSigningKey())
+                .compact();
     }
 
     /**
-     * 액세스 토큰의 유효성을 검증합니다.
+     * 액세스 토큰의 유효성을 검증하고 Claims를 반환합니다.
      * 유효하지 않거나 만료된 토큰인 경우 예외를 발생시킵니다.
      *
      * @param token 검증할 액세스 토큰
+     * @return 토큰의 클레임 정보
      * @throws CustomException 액세스 토큰이 유효하지 않거나 만료된 경우
      */
-    public void verifyAccessToken(final String token) {
+    public Claims verifyAccessToken(final String token) {
         try {
-            final Claims claims = getBody(token);
+            return getBody(token);
         } catch (ExpiredJwtException e) {
             throw new CustomException(AuthErrorStatus._EXPIRED_ACCESS_TOKEN);
-        } catch (UnsupportedJwtException | SignatureException | MalformedJwtException e) {
+        } catch (UnsupportedJwtException | SignatureException | MalformedJwtException | IncorrectClaimException e) {
             throw new CustomException(AuthErrorStatus._INVALID_ACCESS_TOKEN);
-        } catch (RuntimeException e) {
-            throw e;
         }
     }
 
     /**
-     * 리프레쉬 토큰의 유효성을 검증합니다.
+     * 리프레쉬 토큰의 유효성을 검증하고 Claims를 반환합니다.
      * 유효하지 않거나 만료된 토큰인 경우 예외를 발생시킵니다.
      *
      * @param token 검증할 리프레쉬 토큰
+     * @return 토큰의 클레임 정보
      * @throws CustomException 리프레쉬 토큰이 유효하지 않거나 만료된 경우
      */
-    public void verifyRefreshToken(final String token) {
+    public Claims verifyRefreshToken(final String token) {
         try {
-            final Claims claims = getBody(token);
+            return getBody(token);
         } catch (ExpiredJwtException e) {
             throw new CustomException(AuthErrorStatus._EXPIRED_REFRESH_TOKEN);
-        } catch (UnsupportedJwtException | SignatureException | MalformedJwtException e) {
+        } catch (UnsupportedJwtException | SignatureException | MalformedJwtException | IncorrectClaimException e) {
             throw new CustomException(AuthErrorStatus._INVALID_REFRESH_TOKEN);
-        } catch (RuntimeException e) {
-            throw e;
         }
     }
 
@@ -120,112 +148,145 @@ public class JwtService {
     }
 
     /**
+     * 토큰에서 jti를 추출합니다.
+     *
+     * @param token JWT 토큰
+     * @return 토큰에 포함된 jti
+     */
+    public String getJtiFromToken(final String token) {
+        final Claims claims = getBody(token);
+        return claims.getId();
+    }
+
+    /**
      * 액세스 토큰과 리프레시 토큰으로 구성된 토큰 페어를 생성합니다.
-     * 생성된 리프레시 토큰은 Redis에 저장됩니다.
+     * 생성된 리프레시 토큰은 DB에 저장됩니다.
      *
-     * @param userId 유저 ID
+     * @param userId     유저 ID
      * @param mobileType 모바일 타입
-     *
+     * @param clientId   클라이언트 ID (모바일용)
+     * @param userIp     클라이언트 IP
+     * @param userAgent  User-Agent
      * @return 생성된 토큰 페어 (액세스 토큰, 리프레시 토큰)
      */
-    public TokenPair generateTokenPair(final String userId, final MobileType mobileType) {
-        final String accessToken = createAccessToken(userId);
-        final String refreshToken = createRefreshToken(userId);
-        saveRefreshToken(userId, mobileType, refreshToken);
+    @Transactional
+    public TokenPair generateTokenPair(final Long userId, final MobileType mobileType,
+                                       final String clientId, final String userIp, final String userAgent) {
+        final String accessToken = createAccessToken(String.valueOf(userId));
+        final String jti = UUID.randomUUID().toString();
+        final String refreshToken = createRefreshToken(String.valueOf(userId), jti);
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiryAt = now.plus(REFRESH_TOKEN_EXPIRATION_DAYS);
+
+        RefreshToken token = RefreshToken.create(
+                userId, jti, mobileType, clientId, refreshToken,
+                now, expiryAt, userIp, userAgent
+        );
+        refreshTokenRepository.save(token);
+
         return new TokenPair(accessToken, refreshToken);
     }
 
     /**
-     * Redis에 저장된 리프레시 토큰과 입력받은 리프레시 토큰을 비교합니다.
+     * DB에 저장된 리프레시 토큰을 검증합니다.
+     * - ACTIVE 상태: 정상 진행
+     * - ROTATED 상태 + Grace Period 내: 중복 요청으로 간주 (429)
+     * - ROTATED 상태 + Grace Period 초과: 토큰 재사용 공격 탐지 → family 전체 revoke (401)
+     * - 그 외 상태: 이미 사용된 토큰 (401)
      *
-     * @param userId 유저 ID
-     * @param mobileType 모바일 타입
+     * @param jti          토큰의 jti
      * @param refreshToken 입력받은 리프레시 토큰
-     * @throws CustomException 저장된 리프레시 토큰과 일치하지 않을 경우
+     * @return 조회된 RefreshToken 엔티티
+     * @throws CustomException 토큰 상태에 따른 예외 발생
      */
-    public void compareRefreshToken(final String userId, final MobileType mobileType, final String refreshToken) {
-        try {
-            final String storedRefreshToken = jwtRepository.findRefreshToken(userId, mobileType)
-                    .orElseThrow(() ->
-                            new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN_IN_REDIS)
-                    );
+    @Transactional
+    public RefreshToken validateAndGetRefreshToken(final String jti, final String refreshToken) {
+        RefreshToken storedToken = refreshTokenRepository.findByJti(jti)
+                .orElseThrow(() -> new CustomException(AuthErrorStatus._EXPIRED_OR_NOT_FOUND_REFRESH_TOKEN));
 
-            if (!storedRefreshToken.equals(refreshToken)) {
-                throw new CustomException(AuthErrorStatus._DIFFERENT_REFRESH_TOKEN);
-            }
-        } catch (RedisConnectionFailureException | RedisCommandTimeoutException e) {
-            throw new CustomException(AuthErrorStatus._REDIS_UNAVAILABLE);
+        if (!storedToken.getTokenValue().equals(refreshToken)) {
+            throw new CustomException(AuthErrorStatus._DIFFERENT_REFRESH_TOKEN);
         }
+
+        if (storedToken.isActive()) {
+            return storedToken;
+        }
+
+        if (storedToken.getStatus() == TokenStatus.ROTATED) {
+            if (isWithinGracePeriod(storedToken)) {
+                throw new CustomException(AuthErrorStatus._DUPLICATED_REFRESH_REQUEST);
+            }
+            log.warn("[Token Reuse Detected] familyId={}, jti={}, userId={}",
+                    storedToken.getFamilyId(), jti, storedToken.getUserId());
+            refreshTokenRepository.revokeAllByFamilyId(storedToken.getFamilyId());
+            throw new CustomException(AuthErrorStatus._TOKEN_REUSE_DETECTED);
+        }
+
+        throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
     }
 
     /**
-     * 리프레시 토큰을 Redis에 저장합니다.
+     * Grace Period 이내인지 확인합니다.
+     */
+    private boolean isWithinGracePeriod(RefreshToken token) {
+        return token.getLastUsedAt() != null &&
+                token.getLastUsedAt().plusSeconds(GRACE_PERIOD_SECONDS).isAfter(LocalDateTime.now());
+    }
+
+    /**
+     * Token Rotation을 수행합니다.
+     * 기존 토큰을 ROTATED 상태로 변경하고 새 토큰을 생성합니다.
+     * 원자적 업데이트를 사용하여 동시 요청 시 race condition을 방지합니다.
      *
-     * @param userId 유저 ID
+     * @param oldToken    기존 RefreshToken 엔티티
+     * @param userIp      클라이언트 IP
+     * @param userAgent   User-Agent
+     * @return 새로운 토큰 페어
+     * @throws CustomException 토큰이 이미 사용된 경우 (동시 요청으로 인한 race condition)
+     */
+    @Transactional
+    public TokenPair rotateToken(final RefreshToken oldToken, final String userIp, final String userAgent) {
+        LocalDateTime now = LocalDateTime.now();
+
+        // 원자적 업데이트: ACTIVE 상태인 경우에만 ROTATED로 변경
+        int updated = refreshTokenRepository.markAsRotatedIfActive(oldToken.getId(), now, userIp);
+        if (updated == 0) {
+            // 이미 다른 요청에서 토큰을 rotate 했음 (race condition)
+            throw new CustomException(AuthErrorStatus._ALREADY_USED_REFRESH_TOKEN);
+        }
+
+        final String accessToken = createAccessToken(String.valueOf(oldToken.getUserId()));
+        final String newJti = UUID.randomUUID().toString();
+        final String newRefreshToken = createRefreshToken(String.valueOf(oldToken.getUserId()), newJti);
+
+        LocalDateTime expiryAt = now.plus(REFRESH_TOKEN_EXPIRATION_DAYS);
+
+        RefreshToken newToken = oldToken.rotate(newJti, newRefreshToken, now, expiryAt, userIp, userAgent);
+        refreshTokenRepository.save(newToken);
+
+        return new TokenPair(accessToken, newRefreshToken);
+    }
+
+    /**
+     * 특정 사용자 + 디바이스의 리프레시 토큰을 폐기합니다.
+     *
+     * @param userId     유저 ID
      * @param mobileType 모바일 타입
-     * @param refreshToken 저장할 리프레시 토큰
      */
-    public void saveRefreshToken(final String userId, final MobileType mobileType, final String refreshToken) {
-        jwtRepository.saveRefreshToken(userId, mobileType, refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS);
+    @Transactional
+    public void revokeRefreshToken(final Long userId, final MobileType mobileType) {
+        refreshTokenRepository.revokeByUserIdAndMobileType(userId, mobileType);
     }
 
     /**
-     * Redis에 저장된 리프레시 토큰을 삭제합니다.
-     *
-     * @param userId 유저 ID
-     * @param mobileType 모바일 타입
-     */
-    public void deleteRefreshToken(final String userId, final MobileType mobileType) {
-        jwtRepository.deleteRefreshToken(userId, mobileType);
-    }
-
-    /**
-     * 특정 유저의 모든 기기(ANDROID/IOS/DESKTOP)에 대한 리프레시 토큰을 삭제합니다.
+     * 특정 유저의 모든 기기(ANDROID/IOS/DESKTOP)에 대한 리프레시 토큰을 폐기합니다.
      *
      * @param userId 유저 ID
      */
-    public void deleteAllRefreshTokens(String userId) {
-        jwtRepository.deleteAllRefreshTokens(userId);
-    }
-
-    /**
-     * JWT 토큰을 생성합니다.
-     *
-     * @param claims 토큰에 포함할 클레임
-     * @return 생성된 JWT 토큰
-     */
-    private String createToken(final Claims claims) {
-        return Jwts.builder()
-                .setHeaderParam(Header.TYPE, Header.JWT_TYPE)
-                .setClaims(claims)
-                .signWith(getSigningKey())
-                .compact();
-    }
-
-    /**
-     * 리프레시 토큰 생성 시 사용할 클레임을 반환합니다.
-     *
-     * @return 리프레시 토큰에 포함할 클레임
-     */
-    private Claims getRefreshTokenClaims() {
-        final Date now = new Date();
-        return Jwts.claims()
-                .setSubject(REFRESH_TOKEN)
-                .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION_DAYS.toMillis()));
-    }
-
-    /**
-     * 액세스 토큰 생성 시 사용할 클레임을 반환합니다.
-     *
-     * @return 액세스 토큰에 포함할 클레임
-     */
-    private Claims getAccessTokenClaims() {
-        final Date now = new Date();
-        return Jwts.claims()
-                .setSubject(ACCESS_TOKEN)
-                .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + ACCESS_TOKEN_EXPIRATION_MINUTE.toMillis()));
+    @Transactional
+    public void revokeAllRefreshTokens(final Long userId) {
+        refreshTokenRepository.revokeAllByUserId(userId);
     }
 
     /**
@@ -237,6 +298,7 @@ public class JwtService {
     private Claims getBody(final String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
+                .requireIssuer(ISS)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
@@ -265,7 +327,7 @@ public class JwtService {
             throw new CustomException(AuthErrorStatus._NOT_EXIST_ACCESS_TOKEN);
         }
         String token = authorization.substring("Bearer ".length());
-        verifyAccessToken(token);
-        return Long.parseLong(getUserIdInToken(token));
+        Claims claims = verifyAccessToken(token);
+        return Long.parseLong((String) claims.get(USER_ID));
     }
 }

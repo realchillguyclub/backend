@@ -1,9 +1,12 @@
 package server.poptato.user.application.service;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.global.exception.CustomException;
@@ -23,8 +26,6 @@ import server.poptato.user.domain.repository.UserRepository;
 import server.poptato.user.domain.value.Reason;
 import server.poptato.user.status.MobileErrorStatus;
 import server.poptato.user.validator.UserValidator;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -59,7 +60,7 @@ public class UserService {
         mobileRepository.deleteByUserId(userId);
         userRepository.delete(user);
         categoryRepository.deleteByUserId(userId);
-        jwtService.deleteAllRefreshTokens(String.valueOf(userId));
+        jwtService.revokeAllRefreshTokens(userId);
     }
 
     private void saveDeleteReasons(Long userId, List<Reason> reasons, String userInputReason) {

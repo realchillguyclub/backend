@@ -4,7 +4,7 @@ server:
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     properties:
       hibernate:
         format_sql: true
@@ -12,6 +12,11 @@ spring:
         use_sql_comments: true
 
   datasource: { }
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
 logging:
   level:

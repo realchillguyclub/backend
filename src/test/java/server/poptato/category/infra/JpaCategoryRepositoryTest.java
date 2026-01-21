@@ -1,18 +1,23 @@
 package server.poptato.category.infra;
 
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import server.poptato.category.domain.entity.Category;
-import server.poptato.configuration.DatabaseTestConfig;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
-@DataJpaTest
+import server.poptato.category.domain.entity.Category;
+import server.poptato.configuration.DatabaseTestConfig;
+import server.poptato.configuration.MySqlDataJpaTest;
+
+@MySqlDataJpaTest
 public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
 
     @Autowired

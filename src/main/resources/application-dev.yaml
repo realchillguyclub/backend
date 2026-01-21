@@ -1,9 +1,9 @@
-# Prod 환경 전용 설정
-# 공통 설정은 application.yaml
+# Dev 환경 전용 설정
+# 공통 설정은 application.yaml 참조
 
 logging:
   level:
     root: info
-    server.poptato.global.exception: warn
+    server.poptato.global.exception: debug
     org.hibernate.SQL: off
     org.hibernate.type.descriptor.sql.BasicBinder: off
