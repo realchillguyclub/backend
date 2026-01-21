@@ -1,10 +1,27 @@
 package server.poptato.user.application;
 
-import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
-import org.mockito.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.configuration.ServiceTestConfig;
@@ -28,15 +45,6 @@ import server.poptato.user.domain.value.SocialType;
 import server.poptato.user.status.MobileErrorStatus;
 import server.poptato.user.status.UserErrorStatus;
 import server.poptato.user.validator.UserValidator;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
-import static org.mockito.Mockito.never;
 
 class UserServiceTest extends ServiceTestConfig {
 
@@ -137,7 +145,7 @@ class UserServiceTest extends ServiceTestConfig {
             then(deleteReasonRepository).should(times(reasons.size() + 1)).save(any());
             then(userRepository).should().delete(found);
             then(categoryRepository).should().deleteByUserId(userId);
-            then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
+            then(jwtService).should().revokeAllRefreshTokens(userId);
 
             ArgumentCaptor<DeleteUserEvent> captor = ArgumentCaptor.forClass(DeleteUserEvent.class);
             then(eventPublisher).should().publishEvent(captor.capture());
@@ -219,7 +227,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).should(times(2)).save(any());
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
+                then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
@@ -233,7 +241,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).should(times(1)).save(any());
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
+                then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
@@ -247,7 +255,7 @@ class UserServiceTest extends ServiceTestConfig {
                 then(deleteReasonRepository).shouldHaveNoInteractions();
                 then(userRepository).should().delete(found);
                 then(categoryRepository).should().deleteByUserId(userId);
-                then(jwtService).should().deleteAllRefreshTokens(String.valueOf(userId));
+                then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
         }

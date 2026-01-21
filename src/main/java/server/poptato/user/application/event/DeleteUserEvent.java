@@ -16,7 +16,7 @@ public record DeleteUserEvent(
 
 ) {
     public static DeleteUserEvent from(User user, Mobile mobile, List<Reason> deleteReasons, String userInputReason) {
-        List<String> reasonValues = deleteReasons.stream()
+        List<String> reasonValues = (deleteReasons == null ? List.<Reason>of() : deleteReasons).stream()
                 .map(Reason::getValue)
                 .collect(java.util.stream.Collectors.toList());
 

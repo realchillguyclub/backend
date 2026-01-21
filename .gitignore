@@ -49,3 +49,12 @@ out/
 
 .gitignore.swp
 /htmlReport/
+
+### Claude ###
+.claude
+CLAUDE.md
+/docs
+
+##open-api (auto-generated)
+src/main/resources/static/docs/*
+!src/main/resources/static/docs/.gitkeep

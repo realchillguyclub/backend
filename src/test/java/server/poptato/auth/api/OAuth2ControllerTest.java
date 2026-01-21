@@ -1,8 +1,18 @@
 package server.poptato.auth.api;
 
-import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
-import com.epages.restdocs.apispec.ResourceSnippetParameters;
-import com.epages.restdocs.apispec.Schema;
+import static com.epages.restdocs.apispec.ResourceDocumentation.*;
+import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.*;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
+import static org.springframework.restdocs.payload.JsonFieldType.*;
+import static org.springframework.restdocs.payload.PayloadDocumentation.*;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -11,34 +21,26 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.test.web.servlet.ResultActions;
+
+import com.epages.restdocs.apispec.MockMvcRestDocumentationWrapper;
+import com.epages.restdocs.apispec.ResourceSnippetParameters;
+import com.epages.restdocs.apispec.Schema;
+
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
 import server.poptato.auth.application.response.OAuthCallbackResult;
 import server.poptato.auth.application.service.OAuth2LoginService;
 import server.poptato.configuration.ControllerTestConfig;
-
-import java.util.Optional;
-
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static com.epages.restdocs.apispec.ResourceDocumentation.resource;
-import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
-import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
-import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.payload.JsonFieldType.*;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import server.poptato.global.util.ClientInfoExtractor;
 
 @WebMvcTest(controllers = OAuth2Controller.class)
 class OAuth2ControllerTest extends ControllerTestConfig {
 
     @MockBean
     private OAuth2LoginService oAuth2LoginService;
+
+    @MockBean
+    private ClientInfoExtractor clientInfoExtractor;
 
     @Test
     @DisplayName("[SCN-API-AUTH-OAUTH2-001] 인가 시작 시 Kakao authorize URL을 반환한다.")
@@ -190,7 +192,9 @@ class OAuth2ControllerTest extends ControllerTestConfig {
                 1L
         );
 
-        given(oAuth2LoginService.pollDesktopLogin(state))
+        given(clientInfoExtractor.extractClientIp(any())).willReturn("127.0.0.1");
+        given(clientInfoExtractor.extractUserAgent(any())).willReturn("TestAgent/1.0");
+        given(oAuth2LoginService.pollDesktopLogin(anyString(), anyString(), anyString()))
                 .willReturn(Optional.of(responseDto));
 
         // when
@@ -234,7 +238,7 @@ class OAuth2ControllerTest extends ControllerTestConfig {
                         )
                 ));
 
-        verify(oAuth2LoginService, times(1)).pollDesktopLogin(state);
+        verify(oAuth2LoginService, times(1)).pollDesktopLogin(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -243,7 +247,9 @@ class OAuth2ControllerTest extends ControllerTestConfig {
         // given
         String state = "desktop-state-no-pending";
 
-        given(oAuth2LoginService.pollDesktopLogin(state))
+        given(clientInfoExtractor.extractClientIp(any())).willReturn("127.0.0.1");
+        given(clientInfoExtractor.extractUserAgent(any())).willReturn("TestAgent/1.0");
+        given(oAuth2LoginService.pollDesktopLogin(anyString(), anyString(), anyString()))
                 .willReturn(Optional.empty());
 
         // when
@@ -280,6 +286,6 @@ class OAuth2ControllerTest extends ControllerTestConfig {
                         )
                 ));
 
-        verify(oAuth2LoginService, times(1)).pollDesktopLogin(state);
+        verify(oAuth2LoginService, times(1)).pollDesktopLogin(anyString(), anyString(), anyString());
     }
 }

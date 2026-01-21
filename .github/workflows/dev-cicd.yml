@@ -1,8 +1,8 @@
-name: 🚀 Build & Deploy (Production)
+name: 🚀 Build & Deploy (Development)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop, 'release/v**']
 
 permissions:
   contents: read
@@ -59,15 +59,15 @@ jobs:
           platforms: linux/arm64
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/illdan-backend:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:latest
+            ${{ steps.login-ecr.outputs.registry }}/illdan-backend:dev-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to Production
+    name: Deploy to Development
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
     steps:
       - name: 🚀 SSH로 배포 스크립트 실행
         uses: appleboy/ssh-action@v1.0.3

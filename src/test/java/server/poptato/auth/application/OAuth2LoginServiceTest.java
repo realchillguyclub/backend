@@ -1,12 +1,24 @@
 package server.poptato.auth.application;
 
-import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.time.Duration;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
+
 import server.poptato.auth.api.request.LoginRequestDto;
 import server.poptato.auth.application.response.AuthorizeUrlResponseDto;
 import server.poptato.auth.application.response.LoginResponseDto;
@@ -22,13 +34,6 @@ import server.poptato.infra.oauth.state.OAuthStateRepository;
 import server.poptato.infra.oauth.state.PKCEUtils;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.domain.value.SocialType;
-
-import java.time.Duration;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class OAuth2LoginServiceTest extends ServiceTestConfig {
 
@@ -211,6 +216,9 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
     @DisplayName("[SCN-SVC-OAUTH2-003] 데스크탑 전용 폴링 로직을 처리한다.")
     class DesktopPoll {
 
+        private static final String CLIENT_IP = "127.0.0.1";
+        private static final String USER_AGENT = "TestAgent/1.0";
+
         @Test
         @DisplayName("[TC-POLL-001] pending 상태가 존재하면 삭제 후 AuthService.login을 호출하고 LoginResponseDto를 반환한다")
         void pollDesktopLogin_success() {
@@ -223,10 +231,10 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
 
             LoginResponseDto expected = LoginResponseDto.of("access-token", "refresh-token", false, 123L);
             ArgumentCaptor<LoginRequestDto> requestCaptor = ArgumentCaptor.forClass(LoginRequestDto.class);
-            when(authService.login(requestCaptor.capture())).thenReturn(expected);
+            when(authService.login(requestCaptor.capture(), eq(CLIENT_IP), eq(USER_AGENT))).thenReturn(expected);
 
             // when
-            Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state);
+            Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state, CLIENT_IP, USER_AGENT);
 
             // then
             assertThat(result).isPresent();
@@ -253,7 +261,7 @@ class OAuth2LoginServiceTest extends ServiceTestConfig {
             when(desktopPendingLoginRepository.find(state)).thenReturn(Optional.empty());
 
             // when
-            Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state);
+            Optional<LoginResponseDto> result = oAuth2LoginService.pollDesktopLogin(state, CLIENT_IP, USER_AGENT);
 
             // then
             assertThat(result).isEmpty();
