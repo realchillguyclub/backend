@@ -36,6 +36,12 @@ public class JpaTodoRepositoryTest extends DatabaseTestConfig {
         return todo;
     }
 
+    private Boolean getIsDeleted(Long id) {
+        return (Boolean) tem.getEntityManager().createNativeQuery(
+                "SELECT is_deleted FROM todo WHERE id = :id"
+        ).setParameter("id", id).getSingleResult();
+    }
+
     @Nested
     @DisplayName("[SCN-REP-TODO-001] Soft Delete 테스트")
     @TestMethodOrder(MethodOrderer.DisplayName.class)
@@ -57,14 +63,10 @@ public class JpaTodoRepositoryTest extends DatabaseTestConfig {
             tem.flush();
             tem.clear();
 
-            // then
-            Todo found1 = tem.find(Todo.class, todo1.getId());
-            Todo found2 = tem.find(Todo.class, todo2.getId());
-            Todo foundOther = tem.find(Todo.class, otherTodo.getId());
-
-            assertThat(found1.isDeleted()).isTrue();
-            assertThat(found2.isDeleted()).isTrue();
-            assertThat(foundOther.isDeleted()).isFalse();
+            // then - Native Query로 is_deleted 값 직접 확인 (@SQLRestriction 우회)
+            assertThat(getIsDeleted(todo1.getId())).isTrue();
+            assertThat(getIsDeleted(todo2.getId())).isTrue();
+            assertThat(getIsDeleted(otherTodo.getId())).isFalse();
         }
 
         @Test
@@ -84,14 +86,10 @@ public class JpaTodoRepositoryTest extends DatabaseTestConfig {
             tem.flush();
             tem.clear();
 
-            // then
-            Todo found1 = tem.find(Todo.class, todo1.getId());
-            Todo found2 = tem.find(Todo.class, todo2.getId());
-            Todo foundOther = tem.find(Todo.class, otherTodo.getId());
-
-            assertThat(found1.isDeleted()).isTrue();
-            assertThat(found2.isDeleted()).isTrue();
-            assertThat(foundOther.isDeleted()).isFalse();
+            // then - Native Query로 is_deleted 값 직접 확인 (@SQLRestriction 우회)
+            assertThat(getIsDeleted(todo1.getId())).isTrue();
+            assertThat(getIsDeleted(todo2.getId())).isTrue();
+            assertThat(getIsDeleted(otherTodo.getId())).isFalse();
         }
     }
 }

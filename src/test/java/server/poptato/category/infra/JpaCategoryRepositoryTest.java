@@ -1,6 +1,6 @@
 package server.poptato.category.infra;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
 
@@ -33,6 +33,12 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
         tem.persist(c);
         tem.flush();
         tem.clear();
+    }
+
+    private Boolean getIsDeleted(Long id) {
+        return (Boolean) tem.getEntityManager().createNativeQuery(
+                "SELECT is_deleted FROM category WHERE id = :id"
+        ).setParameter("id", id).getSingleResult();
     }
 
     @Nested
@@ -162,14 +168,10 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
             tem.flush();
             tem.clear();
 
-            // then
-            Category found1 = tem.find(Category.class, cat1.getId());
-            Category found2 = tem.find(Category.class, cat2.getId());
-            Category foundOther = tem.find(Category.class, otherCat.getId());
-
-            assertThat(found1.isDeleted()).isTrue();
-            assertThat(found2.isDeleted()).isTrue();
-            assertThat(foundOther.isDeleted()).isFalse();
+            // then - Native Query로 is_deleted 값 직접 확인 (@SQLRestriction 우회)
+            assertThat(getIsDeleted(cat1.getId())).isTrue();
+            assertThat(getIsDeleted(cat2.getId())).isTrue();
+            assertThat(getIsDeleted(otherCat.getId())).isFalse();
         }
     }
 }

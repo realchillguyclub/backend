@@ -29,6 +29,12 @@ public class JpaNoteRepositoryTest extends DatabaseTestConfig {
         return note;
     }
 
+    private Boolean getIsDeleted(Long id) {
+        return (Boolean) tem.getEntityManager().createNativeQuery(
+                "SELECT is_deleted FROM note WHERE id = :id"
+        ).setParameter("id", id).getSingleResult();
+    }
+
     @Nested
     @DisplayName("[SCN-REP-NOTE-001] Soft Delete 테스트")
     @TestMethodOrder(MethodOrderer.DisplayName.class)
@@ -50,14 +56,10 @@ public class JpaNoteRepositoryTest extends DatabaseTestConfig {
             tem.flush();
             tem.clear();
 
-            // then
-            Note found1 = tem.find(Note.class, note1.getId());
-            Note found2 = tem.find(Note.class, note2.getId());
-            Note foundOther = tem.find(Note.class, otherNote.getId());
-
-            assertThat(found1.isDeleted()).isTrue();
-            assertThat(found2.isDeleted()).isTrue();
-            assertThat(foundOther.isDeleted()).isFalse();
+            // then - Native Query로 is_deleted 값 직접 확인 (@SQLRestriction 우회)
+            assertThat(getIsDeleted(note1.getId())).isTrue();
+            assertThat(getIsDeleted(note2.getId())).isTrue();
+            assertThat(getIsDeleted(otherNote.getId())).isFalse();
         }
     }
 }
