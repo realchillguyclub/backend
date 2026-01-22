@@ -39,6 +39,9 @@ public class User extends BaseEntity {
     @Column(name = "is_push_alarm", nullable = false)
     private Boolean isPushAlarm;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @Builder
     public User(SocialType socialType, String socialId, String name, String email, String imageUrl, Boolean isPushAlarm) {
         this.socialType = socialType;
@@ -62,5 +65,12 @@ public class User extends BaseEntity {
                 .imageUrl(imageUrl)
                 .isPushAlarm(true)
                 .build();
+    }
+
+    /**
+     * Soft Delete 처리
+     */
+    public void softDelete() {
+        this.isDeleted = true;
     }
 }

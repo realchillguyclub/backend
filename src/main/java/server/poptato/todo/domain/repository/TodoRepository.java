@@ -55,6 +55,10 @@ public interface TodoRepository {
 
     void deleteAllByCategoryId(Long categoryId);
 
+    void softDeleteByUserId(Long userId);
+
+    void softDeleteByCategoryId(Long categoryId);
+
     List<Todo> findIncompleteTodayTodos(Long userId, TodayStatus todayStatus);
 
     List<Todo> findTodosByDeadLine(Long userId, LocalDate deadline);

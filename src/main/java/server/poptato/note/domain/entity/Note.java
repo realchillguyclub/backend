@@ -27,6 +27,9 @@ public class Note extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @Builder
     public Note(Long userId) {
         this.userId = userId;
@@ -35,5 +38,12 @@ public class Note extends BaseEntity {
     public void update(String title, String content) {
         this.title = title;
         this.content = content;
+    }
+
+    /**
+     * Soft Delete 처리
+     */
+    public void softDelete() {
+        this.isDeleted = true;
     }
 }

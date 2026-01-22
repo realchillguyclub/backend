@@ -88,7 +88,7 @@ public class TodoService {
     public void deleteTodoById(Long userId, Long todoId) {
         userValidator.checkIsExistUser(userId);
         Todo findTodo = validateAndReturnTodo(userId, todoId);
-        todoRepository.delete(findTodo);
+        findTodo.softDelete();
     }
 
     /**
@@ -429,7 +429,11 @@ public class TodoService {
 
         todoRepository.saveAll(completedTodos);
         todoRepository.saveAll(backloggedTodos);
-        todoRepository.deleteAll(toDelete);
+        // Soft Delete 처리
+        for (Todo todo : toDelete) {
+            todo.softDelete();
+        }
+        todoRepository.saveAll(toDelete);
         entityManager.flush();
         entityManager.clear();
 

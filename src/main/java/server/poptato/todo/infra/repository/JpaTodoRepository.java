@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import server.poptato.todo.domain.entity.Todo;
@@ -13,6 +14,7 @@ import server.poptato.todo.domain.value.Type;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
 
@@ -24,6 +26,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND t.type = 'TODAY'
           AND t.todayStatus = 'COMPLETED'
           AND FUNCTION('DATE', c.dateTime) = :todayDate
+          AND t.isDeleted = false
         ORDER BY c.dateTime ASC
     """)
     List<Todo> findCompletedTodays(
@@ -39,6 +42,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND t.type = :type
           AND t.todayDate = :todayDate
           AND t.todayStatus = :todayStatus
+          AND t.isDeleted = false
         ORDER BY t.todayOrder DESC
     """)
     List<Todo> findIncompleteTodays(
@@ -49,18 +53,21 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
     );
 
     @Query("""
-    SELECT t
-    FROM Todo t
-    WHERE t.userId = :userId
-      AND t.type = :type
-      AND t.todayDate = :todayDate
-      AND t.todayStatus = :todayStatus
-    ORDER BY t.todayOrder DESC
+        SELECT t
+        FROM Todo t
+        WHERE t.userId = :userId
+          AND t.type = :type
+          AND t.todayDate = :todayDate
+          AND t.todayStatus = :todayStatus
+          AND t.isDeleted = false
+        ORDER BY t.todayOrder DESC
     """)
-    List<Todo> findIncompleteTodaysWithCategory(@Param("userId") Long userId,
-                                     @Param("type") Type type,
-                                     @Param("todayDate") LocalDate todayDate,
-                                     @Param("todayStatus") TodayStatus todayStatus);
+    List<Todo> findIncompleteTodaysWithCategory(
+            @Param("userId") Long userId,
+            @Param("type") Type type,
+            @Param("todayDate") LocalDate todayDate,
+            @Param("todayStatus") TodayStatus todayStatus
+    );
 
     @EntityGraph(attributePaths = {"category", "category.emoji"})
     @Query("""
@@ -71,6 +78,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND t.type = 'TODAY'
           AND t.todayStatus = 'COMPLETED'
           AND FUNCTION('DATE', c.dateTime) = :todayDate
+          AND t.isDeleted = false
         ORDER BY c.dateTime ASC
     """)
     List<Todo> findCompletedTodaysWithCategory(
@@ -78,31 +86,55 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
             @Param("todayDate") LocalDate todayDate
     );
 
-    Page<Todo> findByUserIdAndTypeAndTodayStatus(Long userId, Type type, TodayStatus todayStatus, Pageable pageable);
+    @Query("""
+        SELECT t
+        FROM Todo t
+        WHERE t.userId = :userId
+          AND t.type = :type
+          AND t.todayStatus = :todayStatus
+          AND t.isDeleted = false
+    """)
+    Page<Todo> findByUserIdAndTypeAndTodayStatus(
+            @Param("userId") Long userId,
+            @Param("type") Type type,
+            @Param("todayStatus") TodayStatus todayStatus,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT t
+        FROM Todo t
+        WHERE t.id = :id
+          AND t.isDeleted = false
+    """)
+    Optional<Todo> findById(@Param("id") Long id);
 
     @Query("""
         SELECT COALESCE(MAX(t.todayOrder), 0)
         FROM Todo t
         WHERE t.userId = :userId
           AND t.todayOrder IS NOT NULL
+          AND t.isDeleted = false
     """)
-    Integer findMaxTodayOrderByUserIdOrZero(Long userId);
+    Integer findMaxTodayOrderByUserIdOrZero(@Param("userId") Long userId);
 
     @Query("""
         SELECT COALESCE(MIN(t.todayOrder), 0)
         FROM Todo t
         WHERE t.userId = :userId
           AND t.todayOrder IS NOT NULL
+          AND t.isDeleted = false
     """)
-    Integer findMinTodayOrderByUserIdOrZero(Long userId);
+    Integer findMinTodayOrderByUserIdOrZero(@Param("userId") Long userId);
 
     @Query("""
         SELECT COALESCE(MAX(t.backlogOrder), 0)
         FROM Todo t
         WHERE t.userId = :userId
           AND t.backlogOrder IS NOT NULL
+          AND t.isDeleted = false
     """)
-    Integer findMaxBacklogOrderByUserIdOrZero(Long userId);
+    Integer findMaxBacklogOrderByUserIdOrZero(@Param("userId") Long userId);
 
     @EntityGraph(attributePaths = {"category", "category.emoji"})
     @Query("""
@@ -111,6 +143,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
         WHERE t.userId = :userId
           AND t.type = :type
           AND (t.todayStatus != :status OR t.todayStatus IS NULL)
+          AND t.isDeleted = false
         ORDER BY t.backlogOrder DESC
     """)
     Page<Todo> findAllBacklogs(
@@ -121,11 +154,12 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
     );
 
     @Query("""
-    SELECT t
-    FROM Todo t
-    WHERE t.userId = :userId
-      AND t.deadline = :localDate
-      AND t.type IN ('BACKLOG', 'YESTERDAY')
+        SELECT t
+        FROM Todo t
+        WHERE t.userId = :userId
+          AND t.deadline = :localDate
+          AND t.type IN ('BACKLOG', 'YESTERDAY')
+          AND t.isDeleted = false
     """)
     Page<Todo> findDeadlineBacklogs(
             @Param("userId") Long userId,
@@ -141,6 +175,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND t.isBookmark = true
           AND t.type = :type
           AND (t.todayStatus != :status OR t.todayStatus IS NULL)
+          AND t.isDeleted = false
         ORDER BY t.backlogOrder DESC
     """)
     Page<Todo> findBookmarkBacklogs(
@@ -158,6 +193,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND t.categoryId = :categoryId
           AND t.type = :type
           AND (t.todayStatus != :status OR t.todayStatus IS NULL)
+          AND t.isDeleted = false
         ORDER BY t.backlogOrder DESC
     """)
     Page<Todo> findBacklogsByCategoryId(
@@ -177,6 +213,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
             WHERE DATE(c.dateTime) = :localDate
         )
           AND t.userId = :userId
+          AND t.isDeleted = false
         ORDER BY (
             SELECT c.dateTime
             FROM CompletedDateTime c
@@ -190,38 +227,68 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
             Pageable pageable
     );
 
-    List<Todo> findByType(Type type);
+    @Query("""
+        SELECT t
+        FROM Todo t
+        WHERE t.type = :type
+          AND t.isDeleted = false
+    """)
+    List<Todo> findByType(@Param("type") Type type);
 
     void deleteAllByCategoryId(Long categoryId);
 
+    @Modifying
     @Query("""
-    SELECT t FROM Todo t
-    WHERE t.userId = :userId
-      AND t.todayStatus = :todayStatus
-      AND t.type = 'TODAY'
+        UPDATE Todo t
+        SET t.isDeleted = true
+        WHERE t.userId = :userId
     """)
-    List<Todo> findIncompleteTodayTodos(@Param("userId") Long userId,
-                                 @Param("todayStatus") TodayStatus todayStatus
+    void softDeleteByUserId(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("""
+        UPDATE Todo t
+        SET t.isDeleted = true
+        WHERE t.categoryId = :categoryId
+    """)
+    void softDeleteByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("""
+        SELECT t FROM Todo t
+        WHERE t.userId = :userId
+          AND t.todayStatus = :todayStatus
+          AND t.type = 'TODAY'
+          AND t.isDeleted = false
+    """)
+    List<Todo> findIncompleteTodayTodos(
+            @Param("userId") Long userId,
+            @Param("todayStatus") TodayStatus todayStatus
     );
 
     @Query("""
-    SELECT t FROM Todo t
-    WHERE t.type = 'BACKLOG'
-        AND t.userId = :userId
-        AND t.deadline = :deadline
+        SELECT t FROM Todo t
+        WHERE t.type = 'BACKLOG'
+          AND t.userId = :userId
+          AND t.deadline = :deadline
+          AND t.isDeleted = false
     """)
-    List<Todo> findTodosByDeadLine(@Param("userId") Long userId,
-                                 @Param("deadline") LocalDate deadline);
+    List<Todo> findTodosByDeadLine(
+            @Param("userId") Long userId,
+            @Param("deadline") LocalDate deadline
+    );
 
     @Query(value = """
-    SELECT t.* FROM todo t
-    JOIN routine r ON t.id = r.todo_id
-    WHERE t.type = 'BACKLOG'
-      AND r.day = :todayDay
-      AND t.user_id = :userId
+        SELECT t.* FROM todo t
+        JOIN routine r ON t.id = r.todo_id
+        WHERE t.type = 'BACKLOG'
+          AND r.day = :todayDay
+          AND t.user_id = :userId
+          AND t.is_deleted = 0
     """, nativeQuery = true)
-    List<Todo> findRoutineTodosByDay(@Param("userId") Long userId,
-                                     @Param("todayDay") String todayDay);
+    List<Todo> findRoutineTodosByDay(
+            @Param("userId") Long userId,
+            @Param("todayDay") String todayDay
+    );
 
     @Query("""
         SELECT t
@@ -229,6 +296,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
         WHERE t.userId = :userId
           AND t.type = 'YESTERDAY'
           AND t.todayStatus = 'INCOMPLETE'
+          AND t.isDeleted = false
         ORDER BY t.todayOrder DESC
     """)
     List<Todo> findIncompleteYesterdays(@Param("userId") Long userId);
@@ -242,18 +310,36 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
           AND YEAR(t.deadline) = :year
           AND MONTH(t.deadline) = :month
           AND t.type = 'BACKLOG'
+          AND t.is_deleted = 0
         GROUP BY t.deadline
         ORDER BY t.deadline
     """, nativeQuery = true)
-    List<Tuple> findDatesWithBacklogCount(Long userId, String year, int month);
+    List<Tuple> findDatesWithBacklogCount(
+            @Param("userId") Long userId,
+            @Param("year") String year,
+            @Param("month") int month
+    );
 
-    boolean existsByUserIdAndTypeAndTodayStatus(Long userId, Type type, TodayStatus todayStatus);
+    @Query("""
+        SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END
+        FROM Todo t
+        WHERE t.userId = :userId
+          AND t.type = :type
+          AND t.todayStatus = :todayStatus
+          AND t.isDeleted = false
+    """)
+    boolean existsByUserIdAndTypeAndTodayStatus(
+            @Param("userId") Long userId,
+            @Param("type") Type type,
+            @Param("todayStatus") TodayStatus todayStatus
+    );
 
     @Query(value = """
-    SELECT t.user_id AS userId, COALESCE(MAX(t.today_order), 0) AS maxOrder
-    FROM todo t
-    WHERE t.user_id IN (:userIds)
-    GROUP BY t.user_id
+        SELECT t.user_id AS userId, COALESCE(MAX(t.today_order), 0) AS maxOrder
+        FROM todo t
+        WHERE t.user_id IN (:userIds)
+          AND t.is_deleted = 0
+        GROUP BY t.user_id
     """, nativeQuery = true)
     List<Tuple> findMaxTodayOrdersByUserIds(@Param("userIds") List<Long> userIds);
 }

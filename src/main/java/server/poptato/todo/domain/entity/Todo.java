@@ -68,6 +68,9 @@ public class Todo extends BaseEntity {
     @Column(name = "backlog_order")
     private Integer backlogOrder;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Category category;
@@ -218,5 +221,12 @@ public class Todo extends BaseEntity {
 
     public void updateBacklogOrder(Integer order) {
         this.backlogOrder = order;
+    }
+
+    /**
+     * Soft Delete 처리
+     */
+    public void softDelete() {
+        this.isDeleted = true;
     }
 }

@@ -100,7 +100,7 @@ public class NoteService {
     }
 
     /**
-     * 노트를 삭제합니다.
+     * 노트를 삭제합니다 (Soft Delete).
      * @param userId 사용자 ID
      * @param noteId 노트 ID
      * @throws CustomException 노트가 존재하지 않을 경우
@@ -111,6 +111,6 @@ public class NoteService {
         Note note = noteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
 
-        noteRepository.delete(note);
+        note.softDelete();
     }
 }

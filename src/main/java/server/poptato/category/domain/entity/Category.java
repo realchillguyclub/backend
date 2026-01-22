@@ -31,6 +31,9 @@ public class Category extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emoji_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Emoji emoji;
@@ -50,5 +53,12 @@ public class Category extends BaseEntity {
 
     public void updateCategoryOrder(int categoryOrder) {
         this.categoryOrder = categoryOrder;
+    }
+
+    /**
+     * Soft Delete 처리
+     */
+    public void softDelete() {
+        this.isDeleted = true;
     }
 }

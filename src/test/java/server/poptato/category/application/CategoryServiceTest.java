@@ -417,8 +417,8 @@ public class CategoryServiceTest extends ServiceTestConfig {
     class DeleteCategory {
 
         @Test
-        @DisplayName("[SCN-SVC-CATEGORY-004][TC-DELETE-001] 정상 삭제 시 카테고리 삭제와 연관 Todo 삭제를 각각 한 번 수행한다.")
-        void delete_success_deletesCategoryAndTodosOnce() {
+        @DisplayName("[SCN-SVC-CATEGORY-004][TC-DELETE-001] 정상 삭제 시 카테고리 soft delete와 연관 Todo soft delete를 각각 한 번 수행한다.")
+        void delete_success_softDeletesCategoryAndTodosOnce() {
             // given
             Long userId = 10L;
             Long categoryId = 100L;
@@ -430,9 +430,8 @@ public class CategoryServiceTest extends ServiceTestConfig {
             categoryService.deleteCategory(userId, categoryId);
 
             // then
-            verify(categoryRepository, times(1)).delete(same(category));
-            verify(todoRepository, times(1)).deleteAllByCategoryId(categoryId);
-            verifyNoMoreInteractions(categoryRepository, todoRepository);
+            verify(category, times(1)).softDelete();
+            verify(todoRepository, times(1)).softDeleteByCategoryId(categoryId);
         }
 
         @Test
