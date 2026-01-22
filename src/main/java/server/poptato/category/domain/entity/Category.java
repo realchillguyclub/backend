@@ -1,5 +1,7 @@
 package server.poptato.category.domain.entity;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
@@ -23,6 +25,7 @@ import server.poptato.global.dao.BaseEntity;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "category")
+@SQLRestriction("is_deleted = false")
 public class Category extends BaseEntity {
 
     @Id

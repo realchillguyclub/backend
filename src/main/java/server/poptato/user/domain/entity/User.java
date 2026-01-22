@@ -1,5 +1,7 @@
 package server.poptato.user.domain.entity;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,6 +23,7 @@ import server.poptato.user.domain.value.SocialType;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
+@SQLRestriction("is_deleted = false")
 public class User extends BaseEntity {
 
     @Id

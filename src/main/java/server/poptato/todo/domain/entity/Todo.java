@@ -3,6 +3,8 @@ package server.poptato.todo.domain.entity;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
@@ -30,6 +32,7 @@ import server.poptato.todo.domain.value.Type;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "todo")
+@SQLRestriction("is_deleted = false")
 public class Todo extends BaseEntity {
 
     @Id

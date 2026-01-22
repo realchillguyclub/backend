@@ -1,5 +1,7 @@
 package server.poptato.note.domain.entity;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -17,6 +19,7 @@ import server.poptato.global.dao.BaseEntity;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "note")
+@SQLRestriction("is_deleted = false")
 public class Note extends BaseEntity {
 
     @Id
