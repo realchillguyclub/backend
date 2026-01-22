@@ -42,16 +42,7 @@ public class UserService {
     private final MobileRepository mobileRepository;
     private final TodoRepository todoRepository;
     private final NoteRepository noteRepository;
-
-    /**
-     * 사용자 탈퇴 처리 메서드.
-     *
-     * 주어진 사용자 ID를 기반으로 탈퇴 요청을 처리합니다.
-     * 탈퇴 이유를 저장하고, 관련 데이터(할 일, 모바일 정보)를 삭제한 뒤 사용자를 삭제합니다.
-     *
-     * @param userId 사용자 ID
-     * @param requestDTO 탈퇴 요청 데이터
-     */
+	
     /**
      * 사용자 탈퇴 처리 메서드 (Soft Delete).
      *

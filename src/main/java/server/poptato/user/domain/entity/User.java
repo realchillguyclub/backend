@@ -75,11 +75,10 @@ public class User extends BaseEntity {
     }
     
     /**
-     * 소프트 삭제 처리.
-     * socialId를 변경하여 동일 소셜 계정으로 재가입 가능하도록 함.
+     * 탈퇴 시, socialId를 변경하여 동일 소셜 계정으로 재가입 가능하도록 함.
      */
     public void softDelete() {
-        this.isDeleted = true;
-        this.socialId = "DELETED_" + System.currentTimeMillis() + "_" + this.socialId;
+		this.socialId = "DELETED_" + System.currentTimeMillis() + "_" + this.socialId;
+		this.isDeleted = true;
     }
 }
