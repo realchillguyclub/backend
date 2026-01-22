@@ -127,4 +127,49 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
             assertThat(page.getTotalPages()).isEqualTo(1);
         }
     }
+
+    @Nested
+    @DisplayName("[SCN-REP-CATEGORY-003] Soft Delete 테스트")
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    class SoftDeleteTests {
+
+        private Category seedAndReturn(Long userId, int order, String name) {
+            Category c = Category.builder()
+                    .userId(userId)
+                    .categoryOrder(order)
+                    .emojiId(1L)
+                    .name(name)
+                    .build();
+            tem.persist(c);
+            tem.flush();
+            tem.clear();
+            return c;
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-001] softDeleteByUserId 호출 시 해당 유저의 모든 Category가 soft delete 된다")
+        void softDeleteByUserId_deletesAllUserCategories() {
+            // given
+            Long userId = 500L;
+            Long otherUserId = 600L;
+
+            Category cat1 = seedAndReturn(userId, 1, "cat1");
+            Category cat2 = seedAndReturn(userId, 2, "cat2");
+            Category otherCat = seedAndReturn(otherUserId, 1, "other");
+
+            // when
+            jpaCategoryRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // then
+            Category found1 = tem.find(Category.class, cat1.getId());
+            Category found2 = tem.find(Category.class, cat2.getId());
+            Category foundOther = tem.find(Category.class, otherCat.getId());
+
+            assertThat(found1.isDeleted()).isTrue();
+            assertThat(found2.isDeleted()).isTrue();
+            assertThat(foundOther.isDeleted()).isFalse();
+        }
+    }
 }
