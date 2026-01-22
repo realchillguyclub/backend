@@ -91,5 +91,110 @@ public class JpaTodoRepositoryTest extends DatabaseTestConfig {
             assertThat(getIsDeleted(todo2.getId())).isTrue();
             assertThat(getIsDeleted(otherTodo.getId())).isFalse();
         }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-003] soft delete된 Todo는 findById로 조회되지 않는다")
+        void findById_excludesSoftDeletedTodo() {
+            // given
+            Long userId = 300L;
+            Todo todo = createTodo(userId, null, "deleted-todo");
+            Long todoId = todo.getId();
+
+            jpaTodoRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // when
+            var found = jpaTodoRepository.findById(todoId);
+
+            // then
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-004] soft delete된 Todo는 findMaxBacklogOrderByUserIdOrZero에서 제외된다")
+        void findMaxBacklogOrderByUserIdOrZero_excludesSoftDeletedTodo() {
+            // given
+            Long userId = 400L;
+
+            Todo todo1 = Todo.builder()
+                    .userId(userId)
+                    .type(Type.BACKLOG)
+                    .content("todo1")
+                    .backlogOrder(5)
+                    .build();
+            tem.persist(todo1);
+
+            Todo todo2 = Todo.builder()
+                    .userId(userId)
+                    .type(Type.BACKLOG)
+                    .content("todo2")
+                    .backlogOrder(10)
+                    .build();
+            tem.persist(todo2);
+            tem.flush();
+            tem.clear();
+
+            // soft delete 전 maxOrder = 10
+            Integer beforeDelete = jpaTodoRepository.findMaxBacklogOrderByUserIdOrZero(userId);
+            assertThat(beforeDelete).isEqualTo(10);
+
+            // when - backlogOrder 10인 todo만 soft delete
+            tem.getEntityManager().createNativeQuery(
+                    "UPDATE todo SET is_deleted = true WHERE user_id = :userId AND backlog_order = 10"
+            ).setParameter("userId", userId).executeUpdate();
+            tem.flush();
+            tem.clear();
+
+            // then - soft delete 후 maxOrder = 5
+            Integer afterDelete = jpaTodoRepository.findMaxBacklogOrderByUserIdOrZero(userId);
+            assertThat(afterDelete).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-005] soft delete된 Todo는 findAllBacklogs에서 제외된다")
+        void findAllBacklogs_excludesSoftDeletedTodo() {
+            // given
+            Long userId = 500L;
+
+            Todo todo1 = Todo.builder()
+                    .userId(userId)
+                    .type(Type.BACKLOG)
+                    .content("active-todo")
+                    .backlogOrder(1)
+                    .todayStatus(TodayStatus.INCOMPLETE)
+                    .build();
+            tem.persist(todo1);
+
+            Todo todo2 = Todo.builder()
+                    .userId(userId)
+                    .type(Type.BACKLOG)
+                    .content("deleted-todo")
+                    .backlogOrder(2)
+                    .todayStatus(TodayStatus.INCOMPLETE)
+                    .build();
+            tem.persist(todo2);
+            tem.flush();
+            tem.clear();
+
+            // todo2만 soft delete
+            tem.getEntityManager().createNativeQuery(
+                    "UPDATE todo SET is_deleted = true WHERE user_id = :userId AND content = 'deleted-todo'"
+            ).setParameter("userId", userId).executeUpdate();
+            tem.flush();
+            tem.clear();
+
+            // when
+            var page = jpaTodoRepository.findAllBacklogs(
+                    userId,
+                    Type.BACKLOG,
+                    TodayStatus.COMPLETED,
+                    org.springframework.data.domain.PageRequest.of(0, 10)
+            );
+
+            // then - active-todo만 조회됨
+            assertThat(page.getContent()).hasSize(1);
+            assertThat(page.getContent().get(0).getContent()).isEqualTo("active-todo");
+        }
     }
 }
