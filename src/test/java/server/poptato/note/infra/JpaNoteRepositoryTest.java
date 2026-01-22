@@ -61,5 +61,47 @@ public class JpaNoteRepositoryTest extends DatabaseTestConfig {
             assertThat(getIsDeleted(note2.getId())).isTrue();
             assertThat(getIsDeleted(otherNote.getId())).isFalse();
         }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-002] soft delete된 Note는 findByIdAndUserId로 조회되지 않는다")
+        void findByIdAndUserId_excludesSoftDeletedNote() {
+            // given
+            Long userId = 300L;
+            Note note = createNote(userId);
+            Long noteId = note.getId();
+
+            jpaNoteRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // when
+            var found = jpaNoteRepository.findByIdAndUserId(noteId, userId);
+
+            // then
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-003] soft delete된 Note는 findNotePreviewsByUserId에서 제외된다")
+        void findNotePreviewsByUserId_excludesSoftDeletedNote() {
+            // given
+            Long userId = 400L;
+            Note note1 = createNote(userId);
+            Note note2 = createNote(userId);
+
+            // note1만 soft delete
+            tem.getEntityManager().createNativeQuery(
+                    "UPDATE note SET is_deleted = true WHERE id = :id"
+            ).setParameter("id", note1.getId()).executeUpdate();
+            tem.flush();
+            tem.clear();
+
+            // when
+            var previews = jpaNoteRepository.findNotePreviewsByUserId(userId, 50, 100);
+
+            // then - note2만 조회됨
+            assertThat(previews).hasSize(1);
+            assertThat(previews.get(0).getId()).isEqualTo(note2.getId());
+        }
     }
 }
