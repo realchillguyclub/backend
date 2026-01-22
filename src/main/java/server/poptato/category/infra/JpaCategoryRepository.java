@@ -16,16 +16,14 @@ public interface JpaCategoryRepository extends CategoryRepository, JpaRepository
     @Query("""
         SELECT MAX(c.categoryOrder)
         FROM Category c
-        WHERE (c.userId = :userId OR c.userId = -1)
-          AND c.isDeleted = false
+        WHERE c.userId = :userId OR c.userId = -1
         """)
     Optional<Integer> findMaxCategoryOrderByUserId(@Param("userId") Long userId);
 
     @Query("""
         SELECT c
         FROM Category c
-        WHERE (c.userId = :userId OR c.userId = -1)
-          AND c.isDeleted = false
+        WHERE c.userId = :userId OR c.userId = -1
         ORDER BY c.categoryOrder ASC
         """)
     Page<Category> findDefaultAndByUserIdOrderByCategoryOrder(@Param("userId") Long userId, Pageable pageable);
@@ -34,7 +32,6 @@ public interface JpaCategoryRepository extends CategoryRepository, JpaRepository
         SELECT c
         FROM Category c
         WHERE c.id = :id
-          AND c.isDeleted = false
         """)
     Optional<Category> findById(@Param("id") Long id);
 

@@ -20,7 +20,7 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
             n.modify_date AS modifyDate
         FROM note n
         WHERE n.user_id = :userId
-          AND n.is_deleted = 0
+          AND n.is_deleted = false
         ORDER BY n.modify_date DESC
         """,
             nativeQuery = true)
@@ -35,7 +35,6 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
         FROM Note n
         WHERE n.id = :noteId
           AND n.userId = :userId
-          AND n.isDeleted = false
         """)
     Optional<Note> findByIdAndUserId(@Param("noteId") Long noteId, @Param("userId") Long userId);
 
