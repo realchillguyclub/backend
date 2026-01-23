@@ -14,7 +14,5 @@ public interface NoteRepository {
 
     Optional<Note> findByIdAndUserId(Long noteId, Long userId);
 
-    void delete(Note note);
-
     void softDeleteByUserId(Long userId);
 }

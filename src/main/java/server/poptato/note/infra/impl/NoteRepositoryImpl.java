@@ -36,11 +36,6 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
-    public void delete(Note note) {
-        jpaNoteRepository.delete(note);
-    }
-
-    @Override
     public void softDeleteByUserId(Long userId) {
         jpaNoteRepository.softDeleteByUserId(userId);
     }

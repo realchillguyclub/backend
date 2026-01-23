@@ -38,7 +38,7 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
         """)
     Optional<Note> findByIdAndUserId(@Param("noteId") Long noteId, @Param("userId") Long userId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Note n
         SET n.isDeleted = true

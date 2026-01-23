@@ -467,8 +467,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
                     .isInstanceOf(CustomException.class)
                     .hasMessageContaining(CategoryErrorStatus._CATEGORY_NOT_EXIST.getMessage());
 
-            verify(categoryRepository, never()).delete(any());
-            verify(todoRepository, never()).deleteAllByCategoryId(anyLong());
+            verify(todoRepository, never()).softDeleteByCategoryId(anyLong());
         }
     }
 

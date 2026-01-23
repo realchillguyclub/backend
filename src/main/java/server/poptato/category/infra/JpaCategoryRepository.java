@@ -35,7 +35,7 @@ public interface JpaCategoryRepository extends CategoryRepository, JpaRepository
         """)
     Optional<Category> findById(@Param("id") Long id);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Category c
         SET c.isDeleted = true

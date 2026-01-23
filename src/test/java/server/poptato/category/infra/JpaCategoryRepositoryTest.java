@@ -36,9 +36,13 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
     }
 
     private Boolean getIsDeleted(Long id) {
-        return (Boolean) tem.getEntityManager().createNativeQuery(
+        Object result = tem.getEntityManager().createNativeQuery(
                 "SELECT is_deleted FROM category WHERE id = :id"
         ).setParameter("id", id).getSingleResult();
+        if (result instanceof Boolean) {
+            return (Boolean) result;
+        }
+        return ((Number) result).intValue() == 1;
     }
 
     @Nested
@@ -199,7 +203,7 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
             // given
             Long userId = 800L;
             seedAndReturn(userId, 1, "active-cat");
-            Category deletedCat = seedAndReturn(userId, 2, "deleted-cat");
+            seedAndReturn(userId, 2, "deleted-cat");
 
             jpaCategoryRepository.softDeleteByUserId(userId);
             tem.flush();

@@ -222,7 +222,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
 
     void deleteAllByCategoryId(Long categoryId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Todo t
         SET t.isDeleted = true
@@ -230,7 +230,7 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
     """)
     void softDeleteByUserId(@Param("userId") Long userId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Todo t
         SET t.isDeleted = true

@@ -39,9 +39,13 @@ public class JpaUserRepositoryTest extends DatabaseTestConfig {
     }
 
     private Boolean getIsDeleted(Long id) {
-        return (Boolean) tem.getEntityManager().createNativeQuery(
+        Object result = tem.getEntityManager().createNativeQuery(
                 "SELECT is_deleted FROM users WHERE id = :id"
         ).setParameter("id", id).getSingleResult();
+        if (result instanceof Boolean) {
+            return (Boolean) result;
+        }
+        return ((Number) result).intValue() == 1;
     }
 
     private void softDeleteUser(Long userId) {
@@ -81,11 +85,12 @@ public class JpaUserRepositoryTest extends DatabaseTestConfig {
             User user = createUser(socialId, "testUser", true);
 
             softDeleteUser(user.getId());
+            String deletedSocialId = "DELETED_" + socialId;
 
-            // when
-            Optional<User> found = jpaUserRepository.findBySocialId(socialId);
+            // when - deletedSocialId로 조회해서 SQLRestriction 동작 검증
+            Optional<User> found = jpaUserRepository.findBySocialId(deletedSocialId);
 
-            // then
+            // then - socialId는 일치하지만 is_deleted=true이므로 조회되지 않아야 함
             assertThat(found).isEmpty();
         }
 
