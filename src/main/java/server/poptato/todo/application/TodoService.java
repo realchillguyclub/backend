@@ -87,8 +87,8 @@ public class TodoService {
     @Transactional
     public void deleteTodoById(Long userId, Long todoId) {
         userValidator.checkIsExistUser(userId);
-        Todo findTodo = validateAndReturnTodo(userId, todoId);
-        todoRepository.delete(findTodo);
+        validateAndReturnTodo(userId, todoId);
+        todoRepository.softDeleteById(todoId);
     }
 
     /**
@@ -429,7 +429,11 @@ public class TodoService {
 
         todoRepository.saveAll(completedTodos);
         todoRepository.saveAll(backloggedTodos);
-        todoRepository.deleteAll(toDelete);
+        // Soft Delete 처리 (벌크 UPDATE)
+        if (!toDelete.isEmpty()) {
+            List<Long> toDeleteIds = toDelete.stream().map(Todo::getId).toList();
+            todoRepository.softDeleteByIds(toDeleteIds);
+        }
         entityManager.flush();
         entityManager.clear();
 

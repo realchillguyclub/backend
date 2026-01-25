@@ -16,9 +16,9 @@ public interface CategoryRepository {
 
     Optional<Category> findById(Long categoryId);
 
-    void delete(Category category);
+    void softDeleteById(Long categoryId);
 
-    void deleteByUserId(Long userId);
+    void softDeleteByUserId(Long userId);
 
     default Page<Category> findCategories(Long userId, Pageable pageable) {
         return findDefaultAndByUserIdOrderByCategoryOrder(userId, pageable);

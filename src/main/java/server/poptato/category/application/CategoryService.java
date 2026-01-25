@@ -115,16 +115,16 @@ public class CategoryService {
     }
 
     /**
-     * 특정 카테고리를 삭제합니다.
+     * 특정 카테고리를 삭제합니다 (Soft Delete).
      *
      * @param userId 사용자 ID
      * @param categoryId 삭제할 카테고리 ID
      */
     public void deleteCategory(Long userId, Long categoryId) {
         userValidator.checkIsExistUser(userId);
-        Category category = categoryValidator.validateAndReturnCategory(userId, categoryId);
-        categoryRepository.delete(category);
-        todoRepository.deleteAllByCategoryId(categoryId);
+        categoryValidator.validateAndReturnCategory(userId, categoryId);
+        categoryRepository.softDeleteById(categoryId);
+        todoRepository.softDeleteByCategoryId(categoryId);
     }
 
     /**

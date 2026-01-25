@@ -1,6 +1,6 @@
 package server.poptato.category.infra;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
 
@@ -33,6 +33,16 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
         tem.persist(c);
         tem.flush();
         tem.clear();
+    }
+
+    private Boolean getIsDeleted(Long id) {
+        Object result = tem.getEntityManager().createNativeQuery(
+                "SELECT is_deleted FROM category WHERE id = :id"
+        ).setParameter("id", id).getSingleResult();
+        if (result instanceof Boolean) {
+            return (Boolean) result;
+        }
+        return ((Number) result).intValue() == 1;
     }
 
     @Nested
@@ -125,6 +135,118 @@ public class JpaCategoryRepositoryTest extends DatabaseTestConfig {
                     .containsExactly(-1, 0);
             assertThat(page.getTotalElements()).isEqualTo(2);
             assertThat(page.getTotalPages()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("[SCN-REP-CATEGORY-003] Soft Delete 테스트")
+    @TestMethodOrder(MethodOrderer.DisplayName.class)
+    class SoftDeleteTests {
+
+        private Category seedAndReturn(Long userId, int order, String name) {
+            Category c = Category.builder()
+                    .userId(userId)
+                    .categoryOrder(order)
+                    .emojiId(1L)
+                    .name(name)
+                    .build();
+            tem.persist(c);
+            tem.flush();
+            tem.clear();
+            return c;
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-001] softDeleteByUserId 호출 시 해당 유저의 모든 Category가 soft delete 된다")
+        void softDeleteByUserId_deletesAllUserCategories() {
+            // given
+            Long userId = 500L;
+            Long otherUserId = 600L;
+
+            Category cat1 = seedAndReturn(userId, 1, "cat1");
+            Category cat2 = seedAndReturn(userId, 2, "cat2");
+            Category otherCat = seedAndReturn(otherUserId, 1, "other");
+
+            // when
+            jpaCategoryRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // then - Native Query로 is_deleted 값 직접 확인 (@SQLRestriction 우회)
+            assertThat(getIsDeleted(cat1.getId())).isTrue();
+            assertThat(getIsDeleted(cat2.getId())).isTrue();
+            assertThat(getIsDeleted(otherCat.getId())).isFalse();
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-002] soft delete된 Category는 findById로 조회되지 않는다")
+        void findById_excludesSoftDeletedCategory() {
+            // given
+            Long userId = 700L;
+            Category cat = seedAndReturn(userId, 1, "deleted-cat");
+            Long catId = cat.getId();
+
+            jpaCategoryRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // when
+            Optional<Category> found = jpaCategoryRepository.findById(catId);
+
+            // then
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-003] soft delete된 Category는 findDefaultAndByUserIdOrderByCategoryOrder에서 제외된다")
+        void findDefaultAndByUserIdOrderByCategoryOrder_excludesSoftDeletedCategory() {
+            // given
+            Long userId = 800L;
+            seedAndReturn(userId, 1, "active-cat");
+            seedAndReturn(userId, 2, "deleted-cat");
+
+            jpaCategoryRepository.softDeleteByUserId(userId);
+            tem.flush();
+            tem.clear();
+
+            // 다시 active 카테고리 추가
+            seedAndReturn(userId, 3, "new-active-cat");
+
+            // when
+            Page<Category> page = jpaCategoryRepository
+                    .findDefaultAndByUserIdOrderByCategoryOrder(userId, PageRequest.of(0, 10));
+
+            // then - soft delete된 카테고리는 제외되고 new-active-cat만 조회
+            assertThat(page.getContent())
+                    .extracting(Category::getName)
+                    .doesNotContain("active-cat", "deleted-cat")
+                    .contains("new-active-cat");
+        }
+
+        @Test
+        @DisplayName("[TC-SOFT-DELETE-004] soft delete된 Category는 findMaxCategoryOrderByUserId에서 제외된다")
+        void findMaxCategoryOrderByUserId_excludesSoftDeletedCategory() {
+            // given
+            Long userId = 900L;
+            seed(-1L, -1, "기본-전체");
+            seed(-1L, 0, "기본-중요");
+            seedAndReturn(userId, 5, "active-cat");
+            seedAndReturn(userId, 10, "to-be-deleted-cat");
+
+            // soft delete 전 maxOrder = 10
+            Optional<Integer> beforeDelete = jpaCategoryRepository.findMaxCategoryOrderByUserId(userId);
+            assertThat(beforeDelete).contains(10);
+
+            // when - order 10인 카테고리만 soft delete
+            tem.getEntityManager().createNativeQuery(
+                    "UPDATE category SET is_deleted = true WHERE user_id = :userId AND category_order = 10"
+            ).setParameter("userId", userId).executeUpdate();
+            tem.flush();
+            tem.clear();
+
+            // then - soft delete 후 maxOrder = 5
+            Optional<Integer> afterDelete = jpaCategoryRepository.findMaxCategoryOrderByUserId(userId);
+            assertThat(afterDelete).contains(5);
         }
     }
 }

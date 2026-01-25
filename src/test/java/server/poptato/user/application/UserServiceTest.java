@@ -25,6 +25,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import server.poptato.auth.application.service.JwtService;
 import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.configuration.ServiceTestConfig;
+import server.poptato.note.domain.repository.NoteRepository;
+import server.poptato.todo.domain.repository.TodoRepository;
 import server.poptato.global.exception.CustomException;
 import server.poptato.user.api.request.UserCommentRequestDTO;
 import server.poptato.user.api.request.UserDeleteRequestDTO;
@@ -71,6 +73,12 @@ class UserServiceTest extends ServiceTestConfig {
 
     @Mock
     MobileRepository mobileRepository;
+
+    @Mock
+    TodoRepository todoRepository;
+
+    @Mock
+    NoteRepository noteRepository;
 
     @InjectMocks
     private UserService userService;
@@ -143,8 +151,11 @@ class UserServiceTest extends ServiceTestConfig {
 
             // then
             then(deleteReasonRepository).should(times(reasons.size() + 1)).save(any());
-            then(userRepository).should().delete(found);
-            then(categoryRepository).should().deleteByUserId(userId);
+            then(userRepository).should().softDeleteById(userId);
+            then(todoRepository).should().softDeleteByUserId(userId);
+            then(categoryRepository).should().softDeleteByUserId(userId);
+            then(noteRepository).should().softDeleteByUserId(userId);
+            then(mobileRepository).should().deleteByUserId(userId);
             then(jwtService).should().revokeAllRefreshTokens(userId);
 
             ArgumentCaptor<DeleteUserEvent> captor = ArgumentCaptor.forClass(DeleteUserEvent.class);
@@ -212,49 +223,66 @@ class UserServiceTest extends ServiceTestConfig {
         void deleteUser_reasonCombination_savesExpectedTimes() {
             // given
             Long userId = 103L;
-            User found = user(userId, "tester");
-            given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(found);
-            given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(found.getId()))
-                    .willReturn(Optional.of(mobile(userId)));
 
             // (a) reasons만 존재
             {
-                reset(deleteReasonRepository, userRepository, categoryRepository, jwtService, eventPublisher);
+                User foundA = user(userId, "testerA");
+                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator);
+                given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(foundA);
+                given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(foundA.getId()))
+                        .willReturn(Optional.of(mobile(userId)));
                 UserDeleteRequestDTO request = requestDTO(List.of(Reason.TOO_COMPLEX, Reason.NOT_USED_OFTEN), null);
 
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).should(times(2)).save(any());
-                then(userRepository).should().delete(found);
-                then(categoryRepository).should().deleteByUserId(userId);
+                then(userRepository).should().softDeleteById(userId);
+                then(todoRepository).should().softDeleteByUserId(userId);
+                then(categoryRepository).should().softDeleteByUserId(userId);
+                then(noteRepository).should().softDeleteByUserId(userId);
+                then(mobileRepository).should().deleteByUserId(userId);
                 then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
             // (b) userInputReason만 존재(공백 아님)
             {
-                reset(deleteReasonRepository, userRepository, categoryRepository, jwtService, eventPublisher);
+                User foundB = user(userId, "testerB");
+                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator, userRepository);
+                given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(foundB);
+                given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(foundB.getId()))
+                        .willReturn(Optional.of(mobile(userId)));
                 UserDeleteRequestDTO request = requestDTO(List.of(), "custom reason");
 
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).should(times(1)).save(any());
-                then(userRepository).should().delete(found);
-                then(categoryRepository).should().deleteByUserId(userId);
+                then(userRepository).should().softDeleteById(userId);
+                then(todoRepository).should().softDeleteByUserId(userId);
+                then(categoryRepository).should().softDeleteByUserId(userId);
+                then(noteRepository).should().softDeleteByUserId(userId);
+                then(mobileRepository).should().deleteByUserId(userId);
                 then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }
 
             // (c) 둘 다 없음 또는 blank
             {
-                reset(deleteReasonRepository, userRepository, categoryRepository, jwtService, eventPublisher);
+                User foundC = user(userId, "testerC");
+                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator, userRepository);
+                given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(foundC);
+                given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(foundC.getId()))
+                        .willReturn(Optional.of(mobile(userId)));
                 UserDeleteRequestDTO request = requestDTO(List.of(), "   ");
 
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).shouldHaveNoInteractions();
-                then(userRepository).should().delete(found);
-                then(categoryRepository).should().deleteByUserId(userId);
+                then(userRepository).should().softDeleteById(userId);
+                then(todoRepository).should().softDeleteByUserId(userId);
+                then(categoryRepository).should().softDeleteByUserId(userId);
+                then(noteRepository).should().softDeleteByUserId(userId);
+                then(mobileRepository).should().deleteByUserId(userId);
                 then(jwtService).should().revokeAllRefreshTokens(userId);
                 then(eventPublisher).should().publishEvent(any(DeleteUserEvent.class));
             }

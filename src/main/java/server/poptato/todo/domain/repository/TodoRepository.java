@@ -25,10 +25,6 @@ public interface TodoRepository {
 
     Optional<Todo> findById(Long todoId);
 
-    void delete(Todo todo);
-
-    void deleteAll(List<Todo> todos);
-
     Todo save(Todo todo);
 
     void saveAll(List<Todo> todo);
@@ -53,7 +49,13 @@ public interface TodoRepository {
 
     List<Todo> findByType(Type type);
 
-    void deleteAllByCategoryId(Long categoryId);
+    void softDeleteById(Long todoId);
+
+    void softDeleteByIds(List<Long> todoIds);
+
+    void softDeleteByUserId(Long userId);
+
+    void softDeleteByCategoryId(Long categoryId);
 
     List<Todo> findIncompleteTodayTodos(Long userId, TodayStatus todayStatus);
 

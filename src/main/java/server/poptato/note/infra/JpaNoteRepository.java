@@ -1,6 +1,7 @@
 package server.poptato.note.infra;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import server.poptato.note.domain.entity.Note;
@@ -19,6 +20,7 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
             n.modify_date AS modifyDate
         FROM note n
         WHERE n.user_id = :userId
+          AND n.is_deleted = false
         ORDER BY n.modify_date DESC
         """,
             nativeQuery = true)
@@ -28,5 +30,27 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
             @Param("previewContentLength") int previewContentLength
     );
 
-    Optional<Note> findByIdAndUserId(Long noteId, Long userId);
+    @Query("""
+        SELECT n
+        FROM Note n
+        WHERE n.id = :noteId
+          AND n.userId = :userId
+        """)
+    Optional<Note> findByIdAndUserId(@Param("noteId") Long noteId, @Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Note n
+        SET n.isDeleted = true
+        WHERE n.id = :noteId
+        """)
+    void softDeleteById(@Param("noteId") Long noteId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Note n
+        SET n.isDeleted = true
+        WHERE n.userId = :userId
+        """)
+    void softDeleteByUserId(@Param("userId") Long userId);
 }

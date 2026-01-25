@@ -1,15 +1,32 @@
 package server.poptato.todo.application;
 
-import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyList;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+
 import server.poptato.category.domain.entity.Category;
+import server.poptato.category.domain.repository.CategoryRepository;
 import server.poptato.category.validator.CategoryValidator;
 import server.poptato.configuration.ServiceTestConfig;
+import server.poptato.todo.api.request.BacklogCreateRequestDto;
+import server.poptato.todo.application.response.BacklogCreateResponseDto;
 import server.poptato.todo.application.response.BacklogListResponseDto;
+import server.poptato.todo.application.response.PaginatedYesterdayResponseDto;
 import server.poptato.todo.domain.entity.Routine;
 import server.poptato.todo.domain.entity.Todo;
 import server.poptato.todo.domain.repository.RoutineRepository;
@@ -19,17 +36,10 @@ import server.poptato.todo.domain.value.Type;
 import server.poptato.user.domain.value.MobileType;
 import server.poptato.user.validator.UserValidator;
 
-import java.util.Collections;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 class TodoBacklogServiceTest extends ServiceTestConfig {
 
     @Mock private TodoRepository todoRepository;
+    @Mock private CategoryRepository categoryRepository;
     @Mock private RoutineRepository routineRepository;
     @Mock private UserValidator userValidator;
     @Mock private CategoryValidator categoryValidator;
@@ -132,6 +142,170 @@ class TodoBacklogServiceTest extends ServiceTestConfig {
 
             verify(categoryValidator, never()).validateAndReturnCategory(any(), any());
             verify(todoRepository).findBookmarkBacklogs(any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("[SCN-SVC-BACKLOG-002] 백로그를 생성한다")
+    class CreateBacklog {
+
+        @Test
+        @DisplayName("[TC-CREATE-001] 전체 카테고리(-1)로 백로그 생성")
+        void createBacklog_allCategory() {
+            // given
+            Long userId = 1L;
+            Long categoryId = -1L;
+            String content = "새 백로그";
+            BacklogCreateRequestDto requestDto = new BacklogCreateRequestDto(content, categoryId);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doNothing().when(categoryValidator).validateCategory(userId, categoryId);
+            when(todoRepository.findMaxBacklogOrderByUserIdOrZero(userId)).thenReturn(5);
+
+            Todo savedTodo = mock(Todo.class);
+            when(savedTodo.getId()).thenReturn(100L);
+            when(todoRepository.save(any(Todo.class))).thenReturn(savedTodo);
+
+            // when
+            BacklogCreateResponseDto response = backlogService.createBacklog(userId, requestDto);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.todoId()).isEqualTo(100L);
+            verify(todoRepository).save(any(Todo.class));
+        }
+
+        @Test
+        @DisplayName("[TC-CREATE-002] 중요 카테고리(0)로 북마크 백로그 생성")
+        void createBacklog_bookmarkCategory() {
+            // given
+            Long userId = 1L;
+            Long categoryId = 0L;
+            String content = "중요한 백로그";
+            BacklogCreateRequestDto requestDto = new BacklogCreateRequestDto(content, categoryId);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doNothing().when(categoryValidator).validateCategory(userId, categoryId);
+            when(todoRepository.findMaxBacklogOrderByUserIdOrZero(userId)).thenReturn(3);
+
+            Todo savedTodo = mock(Todo.class);
+            when(savedTodo.getId()).thenReturn(101L);
+            when(todoRepository.save(any(Todo.class))).thenReturn(savedTodo);
+
+            // when
+            BacklogCreateResponseDto response = backlogService.createBacklog(userId, requestDto);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.todoId()).isEqualTo(101L);
+        }
+
+        @Test
+        @DisplayName("[TC-CREATE-003] 일반 카테고리로 백로그 생성")
+        void createBacklog_normalCategory() {
+            // given
+            Long userId = 1L;
+            Long categoryId = 10L;
+            String content = "카테고리 백로그";
+            BacklogCreateRequestDto requestDto = new BacklogCreateRequestDto(content, categoryId);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doNothing().when(categoryValidator).validateCategory(userId, categoryId);
+            when(todoRepository.findMaxBacklogOrderByUserIdOrZero(userId)).thenReturn(7);
+
+            Todo savedTodo = mock(Todo.class);
+            when(savedTodo.getId()).thenReturn(102L);
+            when(todoRepository.save(any(Todo.class))).thenReturn(savedTodo);
+
+            // when
+            BacklogCreateResponseDto response = backlogService.createBacklog(userId, requestDto);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.todoId()).isEqualTo(102L);
+        }
+    }
+
+    @Nested
+    @DisplayName("[SCN-SVC-BACKLOG-003] 어제 할 일 목록을 조회한다")
+    class GetYesterdays {
+
+        @Test
+        @DisplayName("[TC-YEST-001] 어제 할 일 목록 조회")
+        void getYesterdays_success() {
+            // given
+            Long userId = 1L;
+            int page = 0;
+            int size = 10;
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            Todo yesterday1 = mock(Todo.class);
+            when(yesterday1.getId()).thenReturn(1L);
+            when(yesterday1.getContent()).thenReturn("어제 할 일 1");
+
+            Todo yesterday2 = mock(Todo.class);
+            when(yesterday2.getId()).thenReturn(2L);
+            when(yesterday2.getContent()).thenReturn("어제 할 일 2");
+
+            Page<Todo> yesterdaysPage = new PageImpl<>(List.of(yesterday1, yesterday2));
+            when(todoRepository.findByUserIdAndTypeAndTodayStatus(eq(userId), eq(Type.YESTERDAY), eq(TodayStatus.INCOMPLETE), any()))
+                    .thenReturn(yesterdaysPage);
+
+            // when
+            PaginatedYesterdayResponseDto response = backlogService.getYesterdays(userId, page, size);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.yesterdays()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("[TC-YEST-002] 어제 할 일이 없는 경우")
+        void getYesterdays_empty() {
+            // given
+            Long userId = 1L;
+            int page = 0;
+            int size = 10;
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+
+            Page<Todo> emptyPage = new PageImpl<>(Collections.emptyList());
+            when(todoRepository.findByUserIdAndTypeAndTodayStatus(eq(userId), eq(Type.YESTERDAY), eq(TodayStatus.INCOMPLETE), any()))
+                    .thenReturn(emptyPage);
+
+            // when
+            PaginatedYesterdayResponseDto response = backlogService.getYesterdays(userId, page, size);
+
+            // then
+            assertThat(response).isNotNull();
+            assertThat(response.yesterdays()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("[SCN-SVC-BACKLOG-004] 어제 백로그를 생성한다")
+    class CreateYesterdayBacklog {
+
+        @Test
+        @DisplayName("[TC-YEST-CREATE-001] 어제 백로그 생성 성공")
+        void createYesterdayBacklog_success() {
+            // given
+            Long userId = 1L;
+            String content = "어제 백로그";
+            BacklogCreateRequestDto requestDto = new BacklogCreateRequestDto(content, null);
+
+            doNothing().when(userValidator).checkIsExistUser(userId);
+            doNothing().when(categoryValidator).validateCategory(userId, null);
+            when(todoRepository.findMaxBacklogOrderByUserIdOrZero(userId)).thenReturn(2);
+            when(todoRepository.save(any(Todo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            BacklogCreateResponseDto response = backlogService.createYesterdayBacklog(userId, requestDto);
+
+            // then
+            assertThat(response).isNotNull();
+            verify(todoRepository).save(any(Todo.class));
         }
     }
 }

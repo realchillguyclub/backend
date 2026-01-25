@@ -50,16 +50,6 @@ public class TodoRepositoryImpl implements TodoRepository {
     }
 
     @Override
-    public void delete(Todo todo) {
-        jpaTodoRepository.delete(todo);
-    }
-
-    @Override
-    public void deleteAll(List<Todo> todos) {
-        jpaTodoRepository.deleteAll(todos);
-    }
-
-    @Override
     public Todo save(Todo todo) {
         return jpaTodoRepository.save(todo);
     }
@@ -120,8 +110,23 @@ public class TodoRepositoryImpl implements TodoRepository {
     }
 
     @Override
-    public void deleteAllByCategoryId(Long categoryId) {
-        jpaTodoRepository.deleteAllByCategoryId(categoryId);
+    public void softDeleteById(Long todoId) {
+        jpaTodoRepository.softDeleteById(todoId);
+    }
+
+    @Override
+    public void softDeleteByIds(List<Long> todoIds) {
+        jpaTodoRepository.softDeleteByIds(todoIds);
+    }
+
+    @Override
+    public void softDeleteByUserId(Long userId) {
+        jpaTodoRepository.softDeleteByUserId(userId);
+    }
+
+    @Override
+    public void softDeleteByCategoryId(Long categoryId) {
+        jpaTodoRepository.softDeleteByCategoryId(categoryId);
     }
 
     @Override

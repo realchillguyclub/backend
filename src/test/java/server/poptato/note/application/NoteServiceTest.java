@@ -230,7 +230,7 @@ public class NoteServiceTest extends ServiceTestConfig {
     class DeleteNote {
 
         @Test
-        @DisplayName("[TC-DELETE-001] 노트를 정상적으로 삭제한다")
+        @DisplayName("[TC-DELETE-001] 노트를 정상적으로 삭제한다 (Soft Delete)")
         void deleteNote_success() {
             // given
             Long userId = 1L;
@@ -245,7 +245,7 @@ public class NoteServiceTest extends ServiceTestConfig {
             // then
             verify(userValidator).checkIsExistUser(userId);
             verify(noteRepository).findByIdAndUserId(noteId, userId);
-            verify(noteRepository).delete(note);
+            verify(noteRepository).softDeleteById(noteId);
         }
 
         @Test
@@ -264,7 +264,6 @@ public class NoteServiceTest extends ServiceTestConfig {
 
             verify(userValidator).checkIsExistUser(userId);
             verify(noteRepository).findByIdAndUserId(noteId, userId);
-            verify(noteRepository, never()).delete(any());
         }
     }
 }
