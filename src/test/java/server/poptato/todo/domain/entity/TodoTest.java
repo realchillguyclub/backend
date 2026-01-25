@@ -406,23 +406,4 @@ class TodoTest extends ServiceTestConfig {
             assertThat(todo.isRoutine()).isFalse();
         }
     }
-
-    @Nested
-    @DisplayName("[SCN-TODO-012] Soft Delete")
-    class SoftDeleteTest {
-
-        @Test
-        @DisplayName("[TC-SD-001] softDelete 호출 시 isDeleted가 true로 변경된다")
-        void softDelete_setsIsDeletedToTrue() {
-            // given
-            Todo todo = Todo.createBacklog(1L, "테스트 할 일", 1);
-            assertThat(todo.isDeleted()).isFalse();
-
-            // when
-            todo.softDelete();
-
-            // then
-            assertThat(todo.isDeleted()).isTrue();
-        }
-    }
 }

@@ -67,8 +67,4 @@ public class Category extends BaseEntity {
     public void updateCategoryOrder(int categoryOrder) {
         this.categoryOrder = categoryOrder;
     }
-
-    public void softDelete() {
-        this.isDeleted = true;
-    }
 }

@@ -220,8 +220,6 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
     """)
     List<Todo> findByType(@Param("type") Type type);
 
-    void deleteAllByCategoryId(Long categoryId);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
         UPDATE Todo t

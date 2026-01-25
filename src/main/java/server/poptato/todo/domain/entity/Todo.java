@@ -238,8 +238,4 @@ public class Todo extends BaseEntity {
     public void updateBacklogOrder(Integer order) {
         this.backlogOrder = order;
     }
-
-    public void softDelete() {
-        this.isDeleted = true;
-    }
 }

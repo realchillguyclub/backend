@@ -48,8 +48,4 @@ public class Note extends BaseEntity {
         this.title = title;
         this.content = content;
     }
-
-    public void softDelete() {
-        this.isDeleted = true;
-    }
 }
