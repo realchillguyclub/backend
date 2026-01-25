@@ -55,6 +55,10 @@ public interface TodoRepository {
 
     void deleteAllByCategoryId(Long categoryId);
 
+    void softDeleteById(Long todoId);
+
+    void softDeleteByIds(List<Long> todoIds);
+
     void softDeleteByUserId(Long userId);
 
     void softDeleteByCategoryId(Long categoryId);

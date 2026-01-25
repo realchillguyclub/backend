@@ -1,6 +1,7 @@
 package server.poptato.user.infra.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import server.poptato.user.domain.entity.User;
@@ -38,4 +39,13 @@ public interface JpaUserRepository extends UserRepository, JpaRepository<User, L
         SELECT COUNT(u) FROM User u
         """)
     long count();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE User u
+        SET u.isDeleted = true,
+            u.socialId = CONCAT('DELETED_', u.id, '_', u.socialId)
+        WHERE u.id = :userId
+        """)
+    void softDeleteById(@Param("userId") Long userId);
 }

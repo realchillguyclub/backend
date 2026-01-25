@@ -27,13 +27,16 @@ public interface JpaCategoryRepository extends CategoryRepository, JpaRepository
         ORDER BY c.categoryOrder ASC
         """)
     Page<Category> findDefaultAndByUserIdOrderByCategoryOrder(@Param("userId") Long userId, Pageable pageable);
+	
+	Optional<Category> findById(@Param("id") Long id);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
-        SELECT c
-        FROM Category c
-        WHERE c.id = :id
+        UPDATE Category c
+        SET c.isDeleted = true
+        WHERE c.id = :categoryId
         """)
-    Optional<Category> findById(@Param("id") Long id);
+    void softDeleteById(@Param("categoryId") Long categoryId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

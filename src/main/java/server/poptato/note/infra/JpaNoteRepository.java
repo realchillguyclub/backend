@@ -42,6 +42,14 @@ public interface JpaNoteRepository extends JpaRepository<Note, Long> {
     @Query("""
         UPDATE Note n
         SET n.isDeleted = true
+        WHERE n.id = :noteId
+        """)
+    void softDeleteById(@Param("noteId") Long noteId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Note n
+        SET n.isDeleted = true
         WHERE n.userId = :userId
         """)
     void softDeleteByUserId(@Param("userId") Long userId);

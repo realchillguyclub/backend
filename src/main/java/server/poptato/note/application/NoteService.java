@@ -108,9 +108,9 @@ public class NoteService {
     @Transactional
     public void deleteNote(Long userId, Long noteId) {
         userValidator.checkIsExistUser(userId);
-        Note note = noteRepository.findByIdAndUserId(noteId, userId)
+        noteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new CustomException(NoteErrorStatus._NOT_FOUND_NOTE));
 
-        note.softDelete();
+        noteRepository.softDeleteById(noteId);
     }
 }

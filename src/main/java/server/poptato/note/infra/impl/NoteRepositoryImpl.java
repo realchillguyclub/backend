@@ -36,6 +36,11 @@ public class NoteRepositoryImpl implements NoteRepository {
     }
 
     @Override
+    public void softDeleteById(Long noteId) {
+        jpaNoteRepository.softDeleteById(noteId);
+    }
+
+    @Override
     public void softDeleteByUserId(Long userId) {
         jpaNoteRepository.softDeleteByUserId(userId);
     }

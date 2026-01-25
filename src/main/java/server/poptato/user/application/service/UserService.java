@@ -67,7 +67,7 @@ public class UserService {
         categoryRepository.softDeleteByUserId(userId);
         noteRepository.softDeleteByUserId(userId);
         mobileRepository.deleteByUserId(userId);  // mobile은 hard delete 유지
-        user.softDelete();
+        userRepository.softDeleteById(userId);
 
         jwtService.revokeAllRefreshTokens(userId);
     }

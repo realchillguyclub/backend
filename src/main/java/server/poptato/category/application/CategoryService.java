@@ -122,8 +122,8 @@ public class CategoryService {
      */
     public void deleteCategory(Long userId, Long categoryId) {
         userValidator.checkIsExistUser(userId);
-        Category category = categoryValidator.validateAndReturnCategory(userId, categoryId);
-        category.softDelete();
+        categoryValidator.validateAndReturnCategory(userId, categoryId);
+        categoryRepository.softDeleteById(categoryId);
         todoRepository.softDeleteByCategoryId(categoryId);
     }
 

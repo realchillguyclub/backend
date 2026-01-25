@@ -226,6 +226,22 @@ public interface JpaTodoRepository extends JpaRepository<Todo, Long> {
     @Query("""
         UPDATE Todo t
         SET t.isDeleted = true
+        WHERE t.id = :todoId
+    """)
+    void softDeleteById(@Param("todoId") Long todoId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Todo t
+        SET t.isDeleted = true
+        WHERE t.id IN :todoIds
+    """)
+    void softDeleteByIds(@Param("todoIds") List<Long> todoIds);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        UPDATE Todo t
+        SET t.isDeleted = true
         WHERE t.userId = :userId
     """)
     void softDeleteByUserId(@Param("userId") Long userId);

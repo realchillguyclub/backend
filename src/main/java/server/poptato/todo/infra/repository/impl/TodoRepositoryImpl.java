@@ -125,6 +125,16 @@ public class TodoRepositoryImpl implements TodoRepository {
     }
 
     @Override
+    public void softDeleteById(Long todoId) {
+        jpaTodoRepository.softDeleteById(todoId);
+    }
+
+    @Override
+    public void softDeleteByIds(List<Long> todoIds) {
+        jpaTodoRepository.softDeleteByIds(todoIds);
+    }
+
+    @Override
     public void softDeleteByUserId(Long userId) {
         jpaTodoRepository.softDeleteByUserId(userId);
     }

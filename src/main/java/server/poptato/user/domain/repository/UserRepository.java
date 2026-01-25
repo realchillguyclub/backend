@@ -20,4 +20,6 @@ public interface UserRepository {
     List<User> findByIsPushAlarmTrue();
 
     long count();
+
+    void softDeleteById(Long userId);
 }
