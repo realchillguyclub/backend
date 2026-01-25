@@ -37,6 +37,7 @@ import server.poptato.todo.api.request.RoutineUpdateRequestDto;
 import server.poptato.todo.api.request.SwipeRequestDto;
 import server.poptato.todo.api.request.TimeUpdateRequestDto;
 import server.poptato.todo.api.request.TodoCategoryUpdateRequestDto;
+import server.poptato.todo.api.request.CheckYesterdayTodosRequestDto;
 import server.poptato.todo.api.request.TodoDragAndDropRequestDto;
 import server.poptato.todo.application.response.PaginatedHistoryResponseDto;
 import server.poptato.todo.application.response.TodoDetailResponseDto;
@@ -930,5 +931,71 @@ class TodoServiceTest extends ServiceTestConfig {
                 .content("테스트 할 일")
                 .type(type)
                 .build();
+    }
+
+    @Nested
+    @DisplayName("[SCN-SVC-TODO-012] 어제 할 일을 체크한다")
+    class CheckYesterdayTodos {
+
+        @Test
+        @DisplayName("[TC-YESTERDAY-001] 체크되지 않은 이벤트 Todo는 soft delete 된다")
+        void checkYesterdayTodos_uncheckedEventTodo_softDeleted() {
+            // given
+            Long userId = 1L;
+            Long eventTodoId = 100L;
+
+            Todo eventTodo = mock(Todo.class);
+            when(eventTodo.getId()).thenReturn(eventTodoId);
+            when(eventTodo.isEvent()).thenReturn(true);
+
+            when(todoRepository.findIncompleteYesterdays(userId)).thenReturn(List.of(eventTodo));
+
+            CheckYesterdayTodosRequestDto request = new CheckYesterdayTodosRequestDto(List.of());
+
+            // when
+            todoService.checkYesterdayTodos(userId, request);
+
+            // then
+            verify(todoRepository).softDeleteByIds(List.of(eventTodoId));
+        }
+
+        @Test
+        @DisplayName("[TC-YESTERDAY-002] 체크되지 않은 일반 Todo는 백로그로 이동된다")
+        void checkYesterdayTodos_uncheckedNormalTodo_movedToBacklog() {
+            // given
+            Long userId = 1L;
+
+            Todo normalTodo = mock(Todo.class);
+            when(normalTodo.getId()).thenReturn(200L);
+            when(normalTodo.isEvent()).thenReturn(false);
+
+            when(todoRepository.findIncompleteYesterdays(userId)).thenReturn(List.of(normalTodo));
+
+            CheckYesterdayTodosRequestDto request = new CheckYesterdayTodosRequestDto(List.of());
+
+            // when
+            todoService.checkYesterdayTodos(userId, request);
+
+            // then
+            verify(normalTodo).updateType(Type.BACKLOG);
+            verify(todoRepository, never()).softDeleteByIds(anyList());
+        }
+
+        @Test
+        @DisplayName("[TC-YESTERDAY-003] 삭제할 이벤트가 없으면 softDeleteByIds를 호출하지 않는다")
+        void checkYesterdayTodos_noEventToDelete_noSoftDelete() {
+            // given
+            Long userId = 1L;
+
+            when(todoRepository.findIncompleteYesterdays(userId)).thenReturn(List.of());
+
+            CheckYesterdayTodosRequestDto request = new CheckYesterdayTodosRequestDto(List.of());
+
+            // when
+            todoService.checkYesterdayTodos(userId, request);
+
+            // then
+            verify(todoRepository, never()).softDeleteByIds(anyList());
+        }
     }
 }

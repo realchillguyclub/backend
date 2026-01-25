@@ -66,5 +66,23 @@ public class NoteRepositoryImplTest extends DatabaseTestConfig {
             assertThat(getIsDeleted(note2.getId())).isTrue();
             assertThat(getIsDeleted(otherNote.getId())).isFalse();
         }
+
+        @Test
+        @DisplayName("[TC-IMPL-002] softDeleteById 호출 시 해당 Note가 soft delete 된다")
+        void softDeleteById_deletesSingleNote() {
+            // given
+            Long userId = 1000L;
+            Note note1 = createNote(userId);
+            Note note2 = createNote(userId);
+
+            // when
+            noteRepository.softDeleteById(note1.getId());
+            tem.flush();
+            tem.clear();
+
+            // then
+            assertThat(getIsDeleted(note1.getId())).isTrue();
+            assertThat(getIsDeleted(note2.getId())).isFalse();
+        }
     }
 }

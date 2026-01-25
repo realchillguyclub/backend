@@ -95,5 +95,43 @@ public class TodoRepositoryImplTest extends DatabaseTestConfig {
             assertThat(getIsDeleted(todo2.getId())).isTrue();
             assertThat(getIsDeleted(otherTodo.getId())).isFalse();
         }
+
+        @Test
+        @DisplayName("[TC-IMPL-003] softDeleteById 호출 시 해당 Todo가 soft delete 된다")
+        void softDeleteById_deletesSingleTodo() {
+            // given
+            Long userId = 1000L;
+            Todo todo1 = createTodo(userId, null, "todo1");
+            Todo todo2 = createTodo(userId, null, "todo2");
+
+            // when
+            todoRepository.softDeleteById(todo1.getId());
+            tem.flush();
+            tem.clear();
+
+            // then
+            assertThat(getIsDeleted(todo1.getId())).isTrue();
+            assertThat(getIsDeleted(todo2.getId())).isFalse();
+        }
+
+        @Test
+        @DisplayName("[TC-IMPL-004] softDeleteByIds 호출 시 해당 Todo들이 모두 soft delete 된다")
+        void softDeleteByIds_deletesMultipleTodos() {
+            // given
+            Long userId = 1000L;
+            Todo todo1 = createTodo(userId, null, "todo1");
+            Todo todo2 = createTodo(userId, null, "todo2");
+            Todo todo3 = createTodo(userId, null, "todo3");
+
+            // when
+            todoRepository.softDeleteByIds(java.util.List.of(todo1.getId(), todo2.getId()));
+            tem.flush();
+            tem.clear();
+
+            // then
+            assertThat(getIsDeleted(todo1.getId())).isTrue();
+            assertThat(getIsDeleted(todo2.getId())).isTrue();
+            assertThat(getIsDeleted(todo3.getId())).isFalse();
+        }
     }
 }
