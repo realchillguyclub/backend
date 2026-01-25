@@ -934,7 +934,7 @@ class TodoServiceTest extends ServiceTestConfig {
     }
 
     @Nested
-    @DisplayName("[SCN-SVC-TODO-012] 어제 할 일을 체크한다")
+    @DisplayName("[SCN-SVC-TODO-017] 어제 할 일을 체크한다")
     class CheckYesterdayTodos {
 
         @Test
