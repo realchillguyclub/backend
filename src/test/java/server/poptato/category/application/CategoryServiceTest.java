@@ -430,7 +430,7 @@ public class CategoryServiceTest extends ServiceTestConfig {
             categoryService.deleteCategory(userId, categoryId);
 
             // then
-            verify(category, times(1)).softDelete();
+            verify(categoryRepository, times(1)).softDeleteById(categoryId);
             verify(todoRepository, times(1)).softDeleteByCategoryId(categoryId);
         }
 

@@ -151,7 +151,7 @@ class UserServiceTest extends ServiceTestConfig {
 
             // then
             then(deleteReasonRepository).should(times(reasons.size() + 1)).save(any());
-            assertThat(found.isDeleted()).isTrue();
+            then(userRepository).should().softDeleteById(userId);
             then(todoRepository).should().softDeleteByUserId(userId);
             then(categoryRepository).should().softDeleteByUserId(userId);
             then(noteRepository).should().softDeleteByUserId(userId);
@@ -236,7 +236,7 @@ class UserServiceTest extends ServiceTestConfig {
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).should(times(2)).save(any());
-                assertThat(foundA.isDeleted()).isTrue();
+                then(userRepository).should().softDeleteById(userId);
                 then(todoRepository).should().softDeleteByUserId(userId);
                 then(categoryRepository).should().softDeleteByUserId(userId);
                 then(noteRepository).should().softDeleteByUserId(userId);
@@ -248,7 +248,7 @@ class UserServiceTest extends ServiceTestConfig {
             // (b) userInputReason만 존재(공백 아님)
             {
                 User foundB = user(userId, "testerB");
-                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator);
+                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator, userRepository);
                 given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(foundB);
                 given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(foundB.getId()))
                         .willReturn(Optional.of(mobile(userId)));
@@ -257,7 +257,7 @@ class UserServiceTest extends ServiceTestConfig {
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).should(times(1)).save(any());
-                assertThat(foundB.isDeleted()).isTrue();
+                then(userRepository).should().softDeleteById(userId);
                 then(todoRepository).should().softDeleteByUserId(userId);
                 then(categoryRepository).should().softDeleteByUserId(userId);
                 then(noteRepository).should().softDeleteByUserId(userId);
@@ -269,7 +269,7 @@ class UserServiceTest extends ServiceTestConfig {
             // (c) 둘 다 없음 또는 blank
             {
                 User foundC = user(userId, "testerC");
-                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator);
+                reset(deleteReasonRepository, todoRepository, categoryRepository, noteRepository, mobileRepository, jwtService, eventPublisher, userValidator, userRepository);
                 given(userValidator.checkIsExistAndReturnUser(userId)).willReturn(foundC);
                 given(mobileRepository.findTopByUserIdOrderByModifyDateDesc(foundC.getId()))
                         .willReturn(Optional.of(mobile(userId)));
@@ -278,7 +278,7 @@ class UserServiceTest extends ServiceTestConfig {
                 userService.deleteUser(userId, request);
 
                 then(deleteReasonRepository).shouldHaveNoInteractions();
-                assertThat(foundC.isDeleted()).isTrue();
+                then(userRepository).should().softDeleteById(userId);
                 then(todoRepository).should().softDeleteByUserId(userId);
                 then(categoryRepository).should().softDeleteByUserId(userId);
                 then(noteRepository).should().softDeleteByUserId(userId);

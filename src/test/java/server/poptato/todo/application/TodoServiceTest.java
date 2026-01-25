@@ -102,7 +102,7 @@ class TodoServiceTest extends ServiceTestConfig {
             todoService.deleteTodoById(userId, todoId);
 
             // then
-            verify(todo).softDelete();
+            verify(todoRepository).softDeleteById(todoId);
         }
 
         @Test

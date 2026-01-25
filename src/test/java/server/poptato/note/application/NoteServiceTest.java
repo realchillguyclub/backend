@@ -245,7 +245,7 @@ public class NoteServiceTest extends ServiceTestConfig {
             // then
             verify(userValidator).checkIsExistUser(userId);
             verify(noteRepository).findByIdAndUserId(noteId, userId);
-            verify(note).softDelete();
+            verify(noteRepository).softDeleteById(noteId);
         }
 
         @Test
